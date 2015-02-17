@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <title></title>
+    <script src="http://maps.api.2gis.ru/2.0/loader.js?pkg=full" data-id="dgLoader"></script>
+    <!--<script type="text/javascript" src="markers.js"></script>-->
+    <script type="text/javascript" src="NovosibirskBigData.js"></script>
+    <link rel="stylesheet" type="text/css" href="leaflet.css"/>
+
+    <style type="text/css">
+        #map {
+            height: 800px;
+        }
+
+        .marker._pin:before {
+            position: absolute;
+            margin: -40px 0 0 -12px;
+            width: 25px;
+            height: 40px;
+            background: url('images/marker-icon.png');
+            content: '';
+            /*background-color: rgba(0,200,0,0.5);*/
+        }
+        .marker._bullet:before {
+            position: absolute;
+            margin: -3px 0 0 -3px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            border: solid #237CC9 3px;
+            box-sizing: border-box;
+            content: '';
+            /*background-color: rgba(0,0,200,0.7);*/
+        }
+        .marker._hidden {
+            display: none;
+        }
+        .marker._hidden:before {
+            /*position: absolute;*/
+            /*background-color: rgba(200,0,0,0.9);*/
+            /*width: 6px;*/
+            /*height: 6px;*/
+            /*margin: -4px 0 0-4px;*/
+            /*content: '';*/
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script type="text/javascript">
+    var map, markerGroup;
+
+    console.log(markers.length);
+    DG.then(function() {
+        return DG.plugin('QuadTree.js');
+    }).then(function() {
+        return DG.plugin('Generalize.js');
+    })
+    .then(function () {
+        map = DG.map('map', {
+            "center": [55.0031, 82.916333],
+            "zoom": 13
+        });
+
+        var markerIcon = L.divIcon({
+            iconSize: L.point(0, 0),
+            className: 'marker'
+        });
+        var i, markerArr = [];
+                console.log(markers.length);
+        for (i = 0; i < 10000; i++) {
+            markerArr.push(L.marker([markers[i][1], markers[i][0]], {icon: markerIcon}));
+        }
+        markerGroup = L.markerGeneralizeGroup();
+        var testMarker = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:0});
+//    testMarker.showAlways = true;
+//    var testMarker2 = L.marker([55.0301, 82.901], {icon: markerIcon, count:2});
+        var testMarker1 = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:1});
+        var testMarker2 = L.marker([55.010122656154, 82.878549948987], {icon: markerIcon, count:2});
+        var testMarker3 = L.marker([55.00911626223, 82.877222522769], {icon: markerIcon, count:3});
+        var testMarker4 = L.marker([55.004955894135, 82.871598060847], {icon: markerIcon, count:4});
+//    var testMarker2 = L.marker([55.03, 82.9]);
+//    markerArr = [testMarker1, testMarker2, testMarker3, testMarker4];
+
+        markerGroup.addLayers(markerArr);
+        markerGroup.addTo(map);
+
+    });
+</script>
+</body>
+</html>

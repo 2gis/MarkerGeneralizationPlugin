@@ -1,0 +1,4 @@
+MarkerGeneralizationPlugin
+==========================
+
+Use like FeatureGroup.
