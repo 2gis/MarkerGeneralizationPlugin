@@ -6,7 +6,6 @@
     <script src="http://maps.api.2gis.ru/2.0/loader.js?pkg=full" data-id="dgLoader"></script>
     <!--<script type="text/javascript" src="markers.js"></script>-->
     <script type="text/javascript" src="NovosibirskBigData.js"></script>
-    <link rel="stylesheet" type="text/css" href="leaflet.css"/>
 
     <style type="text/css">
         #map {
@@ -18,7 +17,7 @@
             margin: -40px 0 0 -12px;
             width: 25px;
             height: 40px;
-            background: url('images/marker-icon.png');
+            background: url('marker-icon.png');
             content: '';
             /*background-color: rgba(0,200,0,0.5);*/
         }
@@ -69,7 +68,7 @@
         });
         var i, markerArr = [];
                 console.log(markers.length);
-        for (i = 0; i < 10000; i++) {
+        for (i = 0; i < 2000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {icon: markerIcon}));
         }
         markerGroup = L.markerGeneralizeGroup();
