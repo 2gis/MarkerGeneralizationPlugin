@@ -57,6 +57,31 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
     },
 
+    _unblockingFor: function(iterator, times, callback) {
+        callback = callback || function() {};
+
+        var index = 0;
+        next(index);
+
+        function next(i) {
+            setTimeout(function() {
+                iterator(i, cb);
+            }, 0);
+        }
+
+        function cb() {
+            // console.log('cb, index=', index);
+            index++;
+            if (index < times) {
+                next(index);
+            } else {
+                callback();
+            }
+        }
+
+
+    },
+
     _addLayer: function(layer) {
         layer._positions = {};
 
@@ -85,41 +110,58 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.eachLayer(this._prepareMarker, this);
 
         var that = this;
-
-        this._calculateMarkersClassForZoom(this._map.getZoom());
-
-
-        for (var z = 1; z <= this._map.getMaxZoom(); z++) {
-            if (z == this._map.getZoom()) continue;
-            setTimeout(function(z) {
-                return function() {
-                    var start = new Date();
-                    that._calculateMarkersClassForZoom(z);
-                    var end = new Date();
-                    console.log(z, end.getTime()-start.getTime());
-                }
-            }(z), 0);
-        }
-    },
-
-    _calculateMarkersClassForZoom: function(zoom) {
-        this._processMarkersOnOneZoom(zoom);
-
-
-        var groupInd, markerInd, group, groupClass, currMarker;
-        for (groupInd = 0; groupInd < this.options.levels.length; groupInd++) {
-            groupClass = this.options.levels[groupInd].className;
-            group = this.options.levels[groupInd];
-            for (markerInd = 0; markerInd < this._markers[groupInd].length; markerInd++) {
-                currMarker = this._markers[groupInd][markerInd];
-                currMarker.options.classForZoom[zoom] = groupClass;
+        var currentZoom = this._map.getZoom();
+        var maxZoom = that._map.getMaxZoom();
+        var zoomsToCalculate = [];
+        for (var z = 1; z <= maxZoom; z++) {
+            if (z != currentZoom) {
+                zoomsToCalculate.push(z);
             }
         }
+        zoomsToCalculate.sort(function(a, b) {
+            return Math.abs(currentZoom - a) - Math.abs(currentZoom - b);
+        });
+
+        this._calculateMarkersClassForZoom(currentZoom, function() {
+            that._unblockingFor(function(zoomIndex, cb) {
+                var z = zoomsToCalculate[zoomIndex];
+                // if (z == currentZoom) {
+                //     cb();
+                //     return;
+                // }
+                var start = new Date();
+                that._calculateMarkersClassForZoom(z, function() {
+                    var end = new Date();
+                    console.log(z, end.getTime()-start.getTime());
+                    cb();
+                });
+            }, maxZoom - 1, function() {
+                console.log('All ready!');
+            });
+        });
     },
 
-    _processMarkersOnOneZoom: function(zoom) {
+    _calculateMarkersClassForZoom: function(zoom, callback) {
+        var that = this;
+        this._processMarkersOnOneZoom(zoom, function() {
+            var groupInd, markerInd, group, groupClass, currMarker;
+            for (groupInd = 0; groupInd < that.options.levels.length; groupInd++) {
+                groupClass = that.options.levels[groupInd].className;
+                group = that.options.levels[groupInd];
+                for (markerInd = 0; markerInd < that._markers[groupInd].length; markerInd++) {
+                    currMarker = that._markers[groupInd][markerInd];
+                    currMarker.options.classForZoom[zoom] = groupClass;
+                }
+            }
+            that._invalidateMarkers();
+            callback();
+        });
+    },
+
+    _processMarkersOnOneZoom: function(zoom, callback) {
         var i, currentLevel, currentMarker, markerPos,
-            ops = this.options;
+            ops = this.options,
+            that = this;
 
         var minX = Number.MAX_VALUE, minY = Number.MAX_VALUE, maxX = 0, maxY = 0;
 
@@ -156,28 +198,40 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var levelIndex, items, pendingMarkers = [],
             seekMarkers = this._otherMarkers.slice();
 
-        for (levelIndex = 0; levelIndex < ops.levels.length; levelIndex++) {
+        that._unblockingFor(function(levelIndex, levelsCallback) {
             currentLevel = ops.levels[levelIndex];
 
             if (ops.levels[levelIndex].size[0] == 0 && ops.levels[levelIndex].size[1] == 0) {
-                this._markers[levelIndex] = seekMarkers.slice();
+                that._markers[levelIndex] = seekMarkers.slice();
+                levelsCallback();
                 return;
             }
 
-            for (i = 0; i < seekMarkers.length; i++) {
-                currentMarker = makeNode(seekMarkers[i], currentLevel);
-                items = tree.retrieve(currentMarker);
+            var markersInBucket = 200;
+            var totalMarkesCount = seekMarkers.length;
+            // console.log('totalMarkesCount', totalMarkesCount);
+            var iterationsCount = Math.ceil(totalMarkesCount / markersInBucket);
 
-                if (this._validateGroup(tree, currentMarker, items)) {
-                    tree.insert(currentMarker);
-                    this._markers[levelIndex].push(seekMarkers[i]);
-                } else {
-                    pendingMarkers.push(seekMarkers[i]);
+            that._unblockingFor(function(bucketIndex, markersCallback) {
+                for (var i = markersInBucket * bucketIndex; i < markersInBucket * (bucketIndex + 1) && i < totalMarkesCount; i++) {
+                    // console.log('levelIndex:', levelIndex, 'i:', i);
+                    currentMarker = makeNode(seekMarkers[i], currentLevel);
+                    items = tree.retrieve(currentMarker);
+
+                    if (that._validateGroup(tree, currentMarker, items)) {
+                        tree.insert(currentMarker);
+                        that._markers[levelIndex].push(seekMarkers[i]);
+                    } else {
+                        pendingMarkers.push(seekMarkers[i]);
+                    }
                 }
-            }
-            seekMarkers = pendingMarkers.slice();
-            pendingMarkers = [];
-        }
+                markersCallback();
+            }, iterationsCount, function() {
+                seekMarkers = pendingMarkers.slice();
+                pendingMarkers = [];
+                levelsCallback();
+            });
+        }, ops.levels.length, callback);
 
         function makeNode(marker, level) {
             return {
@@ -188,7 +242,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 width: level.size[0]
             }
         }
-
     },
 
     _validateGroup: function(tree, currMarker, items) {
