@@ -348,7 +348,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     clearLayers: function () {
-        this.clearLayers();
+        L.LayerGroup.prototype.clearLayers();
 
         this._markers = {};
         for (var i = 0; i < this.options.levels.length; i++) {
