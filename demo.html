@@ -69,7 +69,10 @@
         var i, markerArr = [];
                 console.log(markers.length);
         for (i = 0; i < 2000; i++) {
-            markerArr.push(L.marker([markers[i][1], markers[i][0]], {icon: markerIcon}));
+            markerArr.push(L.marker([markers[i][1], markers[i][0]], {
+                icon: markerIcon,
+                isAdvertizing: i < 50
+            }));
         }
         markerGroup = L.markerGeneralizeGroup();
         var testMarker = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:0});

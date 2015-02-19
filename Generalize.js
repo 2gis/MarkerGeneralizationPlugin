@@ -21,8 +21,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var distance = Math.min(currentMarker.safeZone, currentMarker.safeZone);
             return Math.abs(currentMarker.x - checkingMarker.x) > (distance + currentMarker.width / 2 + checkingMarker.width / 2)
                 || Math.abs(currentMarker.y - checkingMarker.y) > (distance + currentMarker.height / 2 + checkingMarker.height / 2);
+        },
+        checkMarkerMinimumLevel: function(marker) {
+            var minimumLevel = 0;
+            if (!(marker && marker.options && marker.options.isAdvertizing)) {
+                minimumLevel = 1;
+            }
+            return minimumLevel;
         }
-
     },
     initialize: function(options) {
         L.Util.setOptions(this, options);
@@ -215,12 +221,16 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             that._unblockingFor(function(bucketIndex, markersCallback) {
                 for (var i = markersInBucket * bucketIndex; i < markersInBucket * (bucketIndex + 1) && i < totalMarkesCount; i++) {
                     // console.log('levelIndex:', levelIndex, 'i:', i);
-                    currentMarker = makeNode(seekMarkers[i], currentLevel);
-                    items = tree.retrieve(currentMarker);
+                    if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
+                        currentMarker = makeNode(seekMarkers[i], currentLevel);
+                        items = tree.retrieve(currentMarker);
 
-                    if (that._validateGroup(tree, currentMarker, items)) {
-                        tree.insert(currentMarker);
-                        that._markers[levelIndex].push(seekMarkers[i]);
+                        if (that._validateGroup(tree, currentMarker, items)) {
+                            tree.insert(currentMarker);
+                            that._markers[levelIndex].push(seekMarkers[i]);
+                        } else {
+                            pendingMarkers.push(seekMarkers[i]);
+                        }
                     } else {
                         pendingMarkers.push(seekMarkers[i]);
                     }
