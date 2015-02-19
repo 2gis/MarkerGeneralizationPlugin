@@ -52,7 +52,7 @@
 
     console.log(markers.length);
     DG.then(function() {
-        return DG.plugin('QuadTree.js');
+        return DG.plugin('quadtree.js');
     }).then(function() {
         return DG.plugin('Generalize.js');
     })
@@ -68,10 +68,10 @@
         });
         var i, markerArr = [];
                 console.log(markers.length);
-        for (i = 0; i < 2000; i++) {
+        for (i = 0; i < 10000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {
                 icon: markerIcon,
-                isAdvertizing: i < 50
+                isAdvertizing: Math.random() < 0.01
             }));
         }
         markerGroup = L.markerGeneralizeGroup();

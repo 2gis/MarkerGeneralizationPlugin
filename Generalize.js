@@ -63,31 +63,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
     },
 
-    _unblockingFor: function(iterator, times, callback) {
-        callback = callback || function() {};
-
-        var index = 0;
-        next(index);
-
-        function next(i) {
-            setTimeout(function() {
-                iterator(i, cb);
-            }, 0);
-        }
-
-        function cb() {
-            // console.log('cb, index=', index);
-            index++;
-            if (index < times) {
-                next(index);
-            } else {
-                callback();
-            }
-        }
-
-
-    },
-
     _addLayer: function(layer) {
         layer._positions = {};
 
@@ -129,12 +104,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         });
 
         this._calculateMarkersClassForZoom(currentZoom, function() {
-            that._unblockingFor(function(zoomIndex, cb) {
+            var startt = new Date();
+            L.Util.UnblockingFor(function(zoomIndex, cb) {
                 var z = zoomsToCalculate[zoomIndex];
-                // if (z == currentZoom) {
-                //     cb();
-                //     return;
-                // }
                 var start = new Date();
                 that._calculateMarkersClassForZoom(z, function() {
                     var end = new Date();
@@ -142,8 +114,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                     cb();
                 });
             }, maxZoom - 1, function() {
-                console.log('All ready!');
+                console.log('All ready!', (new Date()).getTime()-startt.getTime());
             });
+            that._invalidateMarkers();
         });
     },
 
@@ -159,7 +132,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                     currMarker.options.classForZoom[zoom] = groupClass;
                 }
             }
-            that._invalidateMarkers();
             callback();
         });
     },
@@ -190,7 +162,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             this._markers[i] = [];
         }
 
-        var tree = new QuadTree(bounds);
+        var tree = new L.Util.Quadtree(bounds);
 
         currentLevel = ops.levels[0];
 
@@ -201,10 +173,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             tree.insert(makeNode(currentMarker, currentLevel));
         }
 
-        var levelIndex, items, pendingMarkers = [],
+        var items, pendingMarkers = [],
             seekMarkers = this._otherMarkers.slice();
 
-        that._unblockingFor(function(levelIndex, levelsCallback) {
+        L.Util.UnblockingFor(function(levelIndex, levelsCallback) {
             currentLevel = ops.levels[levelIndex];
 
             if (ops.levels[levelIndex].size[0] == 0 && ops.levels[levelIndex].size[1] == 0) {
@@ -218,7 +190,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             // console.log('totalMarkesCount', totalMarkesCount);
             var iterationsCount = Math.ceil(totalMarkesCount / markersInBucket);
 
-            that._unblockingFor(function(bucketIndex, markersCallback) {
+            L.Util.UnblockingFor(function(bucketIndex, markersCallback) {
                 for (var i = markersInBucket * bucketIndex; i < markersInBucket * (bucketIndex + 1) && i < totalMarkesCount; i++) {
                     // console.log('levelIndex:', levelIndex, 'i:', i);
                     if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
@@ -363,4 +335,28 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
 L.markerGeneralizeGroup = function (option) {
     return new L.MarkerGeneralizeGroup(option);
+};
+
+L.Util.UnblockingFor = function(iterator, times, callback) {
+    callback = callback || function() {};
+
+    var index = 0;
+    next(index);
+
+    function next(i) {
+        setTimeout(function() {
+            iterator(i, cb);
+        }, 0);
+    }
+
+    function cb() {
+        // console.log('cb, index=', index);
+        index++;
+        if (index < times) {
+            next(index);
+        } else {
+            callback();
+        }
+    }
+
 };
