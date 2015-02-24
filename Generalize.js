@@ -282,11 +282,15 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         return this;
     },
 
-    removeLayer: function(layer) {
-        var id = layer in this._layers ? layer : this.getLayerId(layer);
+    _removeLayer: function(layer) {
+        var beforeLength = this._layers.length;
+        L.LayerGroup.prototype.removeLayer.call(this, layer);
+        console.log(beforeLength - this._layers.length != 0);
+        return beforeLength - this._layers.length != 0;
+    },
 
-        if (this._map && this._layers[id]) {
-            L.LayerGroup.prototype.removeLayer.call(this, layer);
+    removeLayer: function(layer) {
+        if (this._removeLayer(layer)) {
             this._prepareMarkers();
             this._invalidateMarkers();
         }
@@ -320,10 +324,13 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     clearLayers: function () {
-        L.LayerGroup.prototype.clearLayers();
+        var i;
+        for (i in this._layers) {
+            this._removeLayer(this._layers[i]);
+        }
 
         this._markers = {};
-        for (var i = 0; i < this.options.levels.length; i++) {
+        for (i = 0; i < this.options.levels.length; i++) {
             this._markers[i] = [];
         }
         this._priorityMarkers = [];
