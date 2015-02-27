@@ -68,13 +68,21 @@
         });
         var i, markerArr = [];
                 console.log(markers.length);
-        for (i = 0; i < 10000; i++) {
+        for (i = 0; i < 7000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {
                 icon: markerIcon,
                 isAdvertizing: Math.random() < 0.01
             }));
         }
-        markerGroup = L.markerGeneralizeGroup();
+        markerGroup = L.markerGeneralizeGroup({
+            checkMarkerMinimumLevel: function(marker) {
+                var minimumLevel = 0;
+                if (!(marker && marker.options && marker.options.isAdvertizing)) {
+                    minimumLevel = 1;
+                }
+                return minimumLevel;
+            }
+        });
         var testMarker = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:0});
 //    testMarker.showAlways = true;
 //    var testMarker2 = L.marker([55.0301, 82.901], {icon: markerIcon, count:2});
