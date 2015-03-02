@@ -52,9 +52,9 @@
 
     console.log(markers.length);
     DG.then(function() {
-        return DG.plugin('quadtree.js');
+        return DG.plugin('../src/quadtree.js');
     }).then(function() {
-        return DG.plugin('Generalize.js');
+        return DG.plugin('../src/Generalize.js');
     })
     .then(function () {
         map = DG.map('map', {
