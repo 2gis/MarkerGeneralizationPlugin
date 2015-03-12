@@ -1,7 +1,7 @@
 MarkerGeneralizationPlugin
 ==========================
 
-Provides marker generalisation for 2gis maps API and Leaflet.
+Provides marker generalization for 2gis maps API and Leaflet.
 
 ## Using the plugin
 
