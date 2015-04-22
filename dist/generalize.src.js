@@ -230,6 +230,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     options: {
         levels: [
             {
+                margin: 30,
                 safeZone: 20,
                 size: [25, 40],
                 offset: [12.5, 40],
@@ -246,7 +247,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             }
         ],
         checkMarkersIntersection: function(currentMarker, checkingMarker) {
-            var distance = Math.min(currentMarker.safeZone, checkingMarker.safeZone);
+            var safeZone = Math.min(currentMarker.safeZone, checkingMarker.safeZone);
+            var distance = Math.max(safeZone, checkingMarker.margin);
             return Math.abs(currentMarker.x - checkingMarker.x) > (distance + currentMarker.width / 2 + checkingMarker.width / 2)
                 || Math.abs(currentMarker.y - checkingMarker.y) > (distance + currentMarker.height / 2 + checkingMarker.height / 2);
         },
@@ -441,6 +443,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         function makeNode(marker, level) {
             return {
                 safeZone: level.safeZone,
+                margin: level.margin || 0,
                 x: marker._positions[zoom].x + level.markerOffset[0],
                 y: marker._positions[zoom].y + level.markerOffset[1],
                 height: level.size[1],
