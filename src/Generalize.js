@@ -35,6 +35,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._priorityMarkers = [];
         this._otherMarkers = [];
 
+        this._calculationBusy = false;
+        this._calculationQueued = false;
+
         for (var i = 0; i < this.options.levels.length; i++) {
             this._markers[i] = [];
         }
@@ -82,10 +85,16 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _calculateMarkersClassForEachZoom: function() {
+        var that = this;
+
+        if (this._calculationBusy) {
+            this._calculationQueued = true;
+            return;
+        }
+        this._calculationBusy = true;
 
         this._maxZoom = this._map.getMaxZoom();
 
-        var that = this;
         var currentZoom = this._map.getZoom();
         var maxZoom = that._map.getMaxZoom();
         var zoomsToCalculate = [];
@@ -103,7 +112,13 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             L.Util.UnblockingFor(function(zoomIndex, cb) {
                 var z = zoomsToCalculate[zoomIndex];
                 that._calculateMarkersClassForZoom(z, cb);
-            }, maxZoom - 1);
+            }, maxZoom - 1, function() {
+                that._calculationBusy = false;
+                if (that._calculationQueued) {
+                    that._calculationQueued = false;
+                    that._calculateMarkersClassForEachZoom();
+                }
+            });
         });
     },
 
