@@ -289,6 +289,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 marker.options.state = groupClass;
             }
         }, this);
+        this.fireEvent('invalidationFinish');
     },
 
     _zoomStart: function() {
