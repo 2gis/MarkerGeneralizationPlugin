@@ -91,3 +91,9 @@ var options = {
 **addLayers(array)** - adds list of markers to the group
 
 Also group supports all methods of [FeatureGroup](http://api.2gis.ru/doc/maps/manual/groups/#класс-dgfeaturegroup).
+
+### Events
+
+**invalidationFinish** - fired when the group finished invalidating markers (set all the class names)
+
+Also group supports all events of [FeatureGroup](http://api.2gis.ru/doc/maps/manual/groups/#класс-dgfeaturegroup).
