@@ -247,10 +247,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             }
         ],
         checkMarkersIntersection: function(currentMarker, checkingMarker) {
-            var safeZone = Math.min(currentMarker.safeZone, checkingMarker.safeZone);
-            var distance = Math.max(safeZone, checkingMarker.margin);
-            return Math.abs(currentMarker.x - checkingMarker.x) > (distance + currentMarker.width / 2 + checkingMarker.width / 2)
-                || Math.abs(currentMarker.y - checkingMarker.y) > (distance + currentMarker.height / 2 + checkingMarker.height / 2);
+            var distance = Math.max(currentMarker.safeZone, checkingMarker.margin);
+            return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2)
+                || Math.abs(currentMarker.markerY - checkingMarker.markerY) > (distance + currentMarker.markerHeight / 2 + checkingMarker.markerHeight / 2);
         },
         checkMarkerMinimumLevel: function() {
             return 0;
@@ -441,14 +440,22 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
 
         function makeNode(marker, level) {
+            var safeZone = level.safeZone || 0;
+            var margin = level.margin || 0;
+            // For the worst scenario
+            var sizeAddition = Math.max(safeZone, margin);
             return {
-                safeZone: level.safeZone,
-                margin: level.margin || 0,
-                x: marker._positions[zoom].x + level.markerOffset[0],
-                y: marker._positions[zoom].y + level.markerOffset[1],
-                height: level.size[1],
-                width: level.size[0]
-            }
+                safeZone: safeZone,
+                margin: margin,
+                x: marker._positions[zoom].x - level.offset[0] - sizeAddition,
+                y: marker._positions[zoom].y - level.offset[1] - sizeAddition,
+                height: level.size[1] + sizeAddition * 2,
+                width: level.size[0] + sizeAddition * 2,
+                markerX: marker._positions[zoom].x + level.markerOffset[0],
+                markerY: marker._positions[zoom].y + level.markerOffset[1],
+                markerHeight: level.size[1],
+                markerWidth: level.size[0]
+            };
         }
     },
 
