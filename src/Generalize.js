@@ -325,12 +325,35 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.fireEvent('invalidationFinish');
     },
 
+    _hideMarkersOutOfViewPort: function() {
+        var currentZoom = this._map.getZoom();
+        var pixelBounds = this._map.getPixelBounds();
+        var width = pixelBounds.max.x - pixelBounds.min.x;
+        var height = pixelBounds.max.y - pixelBounds.min.y;
+        this.eachLayer(function(marker) {
+            var markerPos = marker._positions[currentZoom];
+            if (markerPos.x > pixelBounds.min.x - width &&
+                markerPos.x < pixelBounds.max.x + width &&
+                markerPos.y > pixelBounds.min.y - height &&
+                markerPos.y < pixelBounds.max.y + height) {
+                marker._icon.style.display = '';
+            } else {
+                marker._icon.style.display = 'none';
+            }
+        });
+    },
+
     _zoomStart: function() {
         this._map.getPanes().markerPane.style.display = 'none';
     },
 
     _zoomEnd: function() {
         this._invalidateMarkers();
+        this._hideMarkersOutOfViewPort();
+    },
+
+    _dragEnd: function() {
+        this._hideMarkersOutOfViewPort();
     },
 
     addLayer: function(layer) {
@@ -377,6 +400,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         map.on('zoomstart', this._zoomStart, this);
         map.on('zoomend', this._zoomEnd, this);
+        map.on('dragend', this._dragEnd, this);
 
         this.eachLayer(this._prepareMarker, this);
         this._calculateMarkersClassForEachZoom();
@@ -387,6 +411,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (!this._map) return;
         map.off('zoomstart', this._zoomStart, this);
         map.off('zoomend', this._zoomEnd, this);
+        map.off('dragend', this._dragEnd, this);
 
         L.LayerGroup.prototype.onRemove.call(this, map);
 
