@@ -41,13 +41,27 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         this._zoomReady = {};
 
-        for (var i = 0; i < this.options.levels.length; i++) {
-            this._markers[i] = [];
-        }
+        this.on('invalidationFinish', function() {
+            this._map.getPanes().markerPane.style.display = 'block';
+        });
+    },
 
+    _getLevels: function(zoom) {
+        var ops = this.options;
+
+        var levels;
+        if (typeof ops.levels === 'function') {
+            levels = ops.levels(this._map, zoom);
+        } else {
+            levels = ops.levels;
+        }
+        return this._prepareLevels(levels);
+    },
+
+    _prepareLevels: function(levels) {
         var levelId, k, level;
-        for (levelId = 0; levelId < this.options.levels.length; levelId++) {
-            level = this.options.levels[levelId];
+        for (levelId = 0; levelId < levels.length; levelId++) {
+            level = levels[levelId];
             level.markerOffset = [];
             level.markerDistance = [];
 
@@ -64,9 +78,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             }
         }
 
-        this.on('invalidationFinish', function() {
-            this._map.getPanes().markerPane.style.display = 'block';
-        });
+        return levels;
     },
 
     _addLayer: function(layer) {
@@ -138,18 +150,19 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      */
     _calculateMarkersClassForZoom: function(zoom, callback) {
         var i, currentLevel, currentMarker,
+            levels = this._getLevels(zoom),
             ops = this.options,
             that = this;
 
         var bounds = this._getPixelBoundsForZoom(zoom);
 
-        for (i = 0; i < ops.levels.length; i++) {
+        for (i = 0; i < levels.length; i++) {
             this._markers[i] = [];
         }
 
         var tree = new L.Util.Quadtree(bounds);
 
-        currentLevel = ops.levels[0];
+        currentLevel = levels[0];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
             currentMarker = this._prepareMarker(i);
@@ -160,12 +173,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var items, pendingMarkers = [],
             seekMarkers = this._otherMarkers.slice();
 
-        L.Util.UnblockingFor(processAllMarkers, ops.levels.length, updateMarkerStyles);
+        L.Util.UnblockingFor(processAllMarkers, levels.length, updateMarkerStyles);
 
         function processAllMarkers(levelIndex, levelsCallback) {
-            currentLevel = ops.levels[levelIndex];
+            currentLevel = levels[levelIndex];
 
-            if (ops.levels[levelIndex].size[0] == 0 && ops.levels[levelIndex].size[1] == 0) {
+            if (levels[levelIndex].size[0] == 0 && levels[levelIndex].size[1] == 0) {
                 that._markers[levelIndex] = seekMarkers.slice();
                 levelsCallback();
                 return;
@@ -205,9 +218,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         function updateMarkerStyles() {
             var groupInd, markerInd, group, groupClass, currMarker;
-            for (groupInd = 0; groupInd < that.options.levels.length; groupInd++) {
-                groupClass = that.options.levels[groupInd].className;
-                group = that.options.levels[groupInd];
+            for (groupInd = 0; groupInd < levels.length; groupInd++) {
+                groupClass = levels[groupInd].className;
+                group = levels[groupInd];
                 for (markerInd = 0; markerInd < that._markers[groupInd].length; markerInd++) {
                     currMarker = that._markers[groupInd][markerInd];
                     currMarker.options.classForZoom[zoom] = groupClass;
@@ -390,9 +403,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
 
         this._markers = {};
-        for (i = 0; i < this.options.levels.length; i++) {
-            this._markers[i] = [];
-        }
         this._priorityMarkers = [];
         this._otherMarkers = [];
         return this;

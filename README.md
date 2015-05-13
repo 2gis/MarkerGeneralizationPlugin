@@ -40,7 +40,20 @@ Example of options with default params and comments:
 ```javascript
 
 var options = {
-        // types of markers by priority
+        // Types of markers by priority
+        // 
+        // Can be optionally replaced with a function, which takes map and
+        // current zoom as arguments and returns a corresponding levels array 
+        // 
+        // Example:
+        // 
+        // levels: function(map, zoom) {
+        //     if (zoom < 10) {
+        //         return smallLevels;
+        //     } else {
+        //         return largeLevels;
+        //     }
+        // }
         levels: [
             {
                 // minimum pixels from current marker to another marker higher or this level
