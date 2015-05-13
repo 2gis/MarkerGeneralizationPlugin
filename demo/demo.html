@@ -59,7 +59,7 @@
     .then(function () {
         map = DG.map('map', {
             "center": [55.0031, 82.916333],
-            "zoom": 13
+            "zoom": 17
         });
 
         var markerIcon = L.divIcon({
@@ -68,7 +68,7 @@
         });
         var i, markerArr = [];
                 console.log(markers.length);
-        for (i = 0; i < 7000; i++) {
+        for (i = 0; i < 2000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {
                 icon: markerIcon,
                 isAdvertizing: Math.random() < 0.01
@@ -76,11 +76,13 @@
         }
         markerGroup = L.markerGeneralizeGroup({
             checkMarkerMinimumLevel: function(marker) {
-                var minimumLevel = 0;
-                if (!(marker && marker.options && marker.options.isAdvertizing)) {
-                    minimumLevel = 1;
-                }
-                return minimumLevel;
+                return 0;
+                // use simple variant in demo
+//                var minimumLevel = 0;
+//                if (!(marker && marker.options && marker.options.isAdvertizing)) {
+//                    minimumLevel = 1;
+//                }
+//                return minimumLevel;
             }
         });
         var testMarker = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:0});
@@ -96,6 +98,7 @@
         markerGroup.addLayers(markerArr);
         markerGroup.addTo(map);
 
+        map.fitBounds(markerGroup.getBounds());
     });
 </script>
 </body>
