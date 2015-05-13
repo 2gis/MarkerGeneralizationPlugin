@@ -238,6 +238,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             // For the worst scenario
             var sizeAddition = Math.max(safeZone, margin);
             return {
+                marker: marker,
                 safeZone: safeZone,
                 margin: margin,
                 x: marker._positions[zoom].x - level.offset[0] - sizeAddition,
