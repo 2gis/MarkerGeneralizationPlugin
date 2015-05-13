@@ -39,6 +39,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._calculationBusy = false;
         this._calculationQueued = false;
 
+        this._zoomReady = {};
+
         for (var i = 0; i < this.options.levels.length; i++) {
             this._markers[i] = [];
         }
@@ -61,6 +63,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 level.markerOffset[k] = level.size[k] / 2 - level.offset[k];
             }
         }
+
+        this.on('invalidationFinish', function() {
+            this._map.getPanes().markerPane.style.display = 'block';
+        });
     },
 
     _addLayer: function(layer) {
@@ -93,6 +99,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             return;
         }
         this._calculationBusy = true;
+        this._zoomReady = {};
 
         this._maxZoom = this._map.getMaxZoom();
 
@@ -206,6 +213,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                     currMarker.options.classForZoom[zoom] = groupClass;
                 }
             }
+            that._zoomReady[zoom] = true;
             // if finish calculate styles for current level
             if (that._map.getZoom() == zoom) that._invalidateMarkers();
             callback();
@@ -285,6 +293,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      */
     _invalidateMarkers: function() {
         var groupClass, zoom = this._map.getZoom();
+
+        if (!this._zoomReady[zoom]) return;
+
         this.eachLayer(function(marker) {
             groupClass = marker.options.classForZoom[zoom];
             if (!groupClass) return; //not ready yet
@@ -296,6 +307,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 marker.options.state = groupClass;
             }
         }, this);
+
         this.fireEvent('invalidationFinish');
     },
 
@@ -305,7 +317,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     _zoomEnd: function() {
         this._invalidateMarkers();
-        this._map.getPanes().markerPane.style.display = 'block';
     },
 
     addLayer: function(layer) {
