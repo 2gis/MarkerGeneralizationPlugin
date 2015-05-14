@@ -246,6 +246,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 className: '_hidden'
             }
         ],
+        // In parts of viewport size.
+        // 1 means there will be 1 screen in all directions of unhidden markers around the viewport.
+        // 0.5 means there will be a half of the screen in all directions of unhidden markers around the viewport.
+        viewportHideOffset: 1,
         checkMarkersIntersection: function(currentMarker, checkingMarker) {
             var distance = Math.max(currentMarker.safeZone, checkingMarker.margin);
             return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2)
@@ -556,8 +560,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     _hideMarkersOutOfViewPort: function() {
         var currentZoom = this._map.getZoom();
         var pixelBounds = this._map.getPixelBounds();
-        var width = pixelBounds.max.x - pixelBounds.min.x;
-        var height = pixelBounds.max.y - pixelBounds.min.y;
+        var width = (pixelBounds.max.x - pixelBounds.min.x) * this.options.viewportHideOffset;
+        var height = (pixelBounds.max.y - pixelBounds.min.y) * this.options.viewportHideOffset;
         this.eachLayer(function(marker) {
             var markerPos = marker._positions[currentZoom];
             if (markerPos.x > pixelBounds.min.x - width &&

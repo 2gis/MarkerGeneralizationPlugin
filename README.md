@@ -78,6 +78,8 @@ var options = {
                 className: '_hidden'
             }
         ],
+        // distance to show markers out of viewport, in parts of viewport size
+        viewportHideOffset: 0.5,
         // function to check if current marker intersect testing marker
         // currentMarker, checkingMarker have this list of attributes:
         //      x, y - marker center coordinates in pixels for checking zoom (calculate from real coordinates and offset)
