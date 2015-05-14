@@ -260,7 +260,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         this._layers = {};
 
-        this._markers = {};
         this._priorityMarkers = [];
         this._otherMarkers = [];
 
@@ -378,6 +377,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      */
     _calculateMarkersClassForZoom: function(zoom, callback) {
         var i, currentLevel, currentMarker,
+            tmpMarkers = {},
             levels = this._getLevels(zoom),
             ops = this.options,
             that = this;
@@ -385,7 +385,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var bounds = this._getPixelBoundsForZoom(zoom);
 
         for (i = 0; i < levels.length; i++) {
-            this._markers[i] = [];
+            tmpMarkers[i] = [];
         }
 
         var tree = new L.Util.Quadtree(bounds);
@@ -394,7 +394,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
             currentMarker = this._prepareMarker(i);
-            this._markers[currentLevel].push(currentMarker);
+            tmpMarkers[currentLevel].push(currentMarker);
             tree.insert(makeNode(currentMarker, currentLevel));
         }
 
@@ -407,7 +407,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             currentLevel = levels[levelIndex];
 
             if (levels[levelIndex].size[0] == 0 && levels[levelIndex].size[1] == 0) {
-                that._markers[levelIndex] = seekMarkers.slice();
+                tmpMarkers[levelIndex] = seekMarkers.slice();
                 levelsCallback();
                 return;
             }
@@ -426,7 +426,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
                         if (that._validateGroup(currentMarker, items)) {
                             tree.insert(currentMarker);
-                            that._markers[levelIndex].push(seekMarkers[i]);
+                            tmpMarkers[levelIndex].push(seekMarkers[i]);
                         } else {
                             pendingMarkers.push(seekMarkers[i]);
                         }
@@ -449,8 +449,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             for (groupInd = 0; groupInd < levels.length; groupInd++) {
                 groupClass = levels[groupInd].className;
                 group = levels[groupInd];
-                for (markerInd = 0; markerInd < that._markers[groupInd].length; markerInd++) {
-                    currMarker = that._markers[groupInd][markerInd];
+                for (markerInd = 0; markerInd < tmpMarkers[groupInd].length; markerInd++) {
+                    currMarker = tmpMarkers[groupInd][markerInd];
                     currMarker.options.classForZoom[zoom] = groupClass;
                 }
             }
@@ -656,7 +656,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             this._removeLayer(this._layers[i]);
         }
 
-        this._markers = {};
         this._priorityMarkers = [];
         this._otherMarkers = [];
         return this;
