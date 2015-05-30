@@ -137,6 +137,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 that._calculateMarkersClassForZoom(z, cb);
             }, maxZoom - 1, function() {
                 that._calculationBusy = false;
+                that.fireEvent('calculationFinish');
                 if (that._calculationQueued) {
                     that._calculationQueued = false;
                     that._calculateMarkersClassForEachZoom();
@@ -155,16 +156,13 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var i, currentLevel, currentMarker,
             tmpMarkers = {},
             levels = this._getLevels(zoom),
-            ops = this.options,
             that = this;
-
-        var bounds = this._getPixelBoundsForZoom(zoom);
 
         for (i = 0; i < levels.length; i++) {
             tmpMarkers[i] = [];
         }
 
-        var tree = new L.Util.Quadtree(bounds);
+        var tree = L.Util.rbush();
 
         currentLevel = levels[0];
 
@@ -188,7 +186,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 return;
             }
 
-            var markersInBucket = 200;
+            var markersInBucket = 1000;
             var totalMarkesCount = seekMarkers.length;
             var iterationsCount = Math.ceil(totalMarkesCount / markersInBucket);
 
@@ -198,7 +196,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 for (var i = markersInBucket * bucketIndex; i < markersInBucket * (bucketIndex + 1) && i < totalMarkesCount; i++) {
                     if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
                         currentMarker = makeNode(seekMarkers[i], currentLevel);
-                        items = tree.retrieve(currentMarker);
+                        items = tree.search(currentMarker);
 
                         if (that._validateGroup(currentMarker, items)) {
                             tree.insert(currentMarker);
@@ -241,19 +239,23 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var margin = level.margin || 0;
             // For the worst scenario
             var sizeAddition = Math.max(safeZone, margin);
-            return {
-                marker: marker,
-                safeZone: safeZone,
-                margin: margin,
-                x: marker._positions[zoom].x - level.offset[0] - sizeAddition,
-                y: marker._positions[zoom].y - level.offset[1] - sizeAddition,
-                height: level.size[1] + sizeAddition * 2,
-                width: level.size[0] + sizeAddition * 2,
-                markerX: marker._positions[zoom].x + level.markerOffset[0],
-                markerY: marker._positions[zoom].y + level.markerOffset[1],
-                markerHeight: level.size[1],
-                markerWidth: level.size[0]
-            };
+
+            var x = marker._positions[zoom].x - level.offset[0] - sizeAddition;
+            var y = marker._positions[zoom].y - level.offset[1] - sizeAddition;
+            var width = level.size[0] + sizeAddition * 2;
+            var height =  level.size[1] + sizeAddition * 2;
+
+            var node = [x, y, x + width, y + height];
+
+            node.marker = marker;
+            node.safeZone = safeZone;
+            node.margin = margin;
+            node.markerX = marker._positions[zoom].x + level.markerOffset[0];
+            node.markerY = marker._positions[zoom].y + level.markerOffset[1];
+            node.markerHeight = level.size[1];
+            node.markerWidth = level.size[0];
+
+            return node;
         }
     },
 
@@ -407,7 +409,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         map.on('dragend', this._dragEnd, this);
 
         this.eachLayer(this._prepareMarker, this);
-        this._calculateMarkersClassForEachZoom();
+        // wait user map manipulation to know correct init zoom
+        setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
         L.LayerGroup.prototype.onAdd.call(this, map);
     },
 
