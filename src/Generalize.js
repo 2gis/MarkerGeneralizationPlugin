@@ -99,6 +99,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var levelId, k, level;
         for (levelId = 0; levelId < levels.length; levelId++) {
             level = levels[levelId];
+            level.index = levelId;
             level.markerOffset = [];
             level.markerDistance = [];
 
@@ -286,6 +287,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
             var node = [x, y, x + width, y + height];
 
+            node.levelIndex = level.index;
             node.marker = marker;
             node.safeZone = safeZone;
             node.margin = margin;
