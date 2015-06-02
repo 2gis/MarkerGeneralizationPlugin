@@ -4,7 +4,7 @@ var concat = require('gulp-concat');
 
 gulp.task('default', function() {
     gulp.src([
-        'src/QuadTree.js',
+        'src/rbush.js',
         'src/Generalize.js'
     ])
         .pipe(concat('generalize.src.js'))

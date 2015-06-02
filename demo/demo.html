@@ -52,7 +52,7 @@
 
     console.log(markers.length);
     DG.then(function() {
-        return DG.plugin('../src/quadtree.js');
+        return DG.plugin('../src/rbush.js');
     }).then(function() {
         return DG.plugin('../src/Generalize.js');
     })
@@ -67,8 +67,7 @@
             className: 'marker'
         });
         var i, markerArr = [];
-                console.log(markers.length);
-        for (i = 0; i < 2000; i++) {
+        for (i = 0; i < 5000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {
                 icon: markerIcon,
                 isAdvertizing: Math.random() < 0.01
@@ -99,6 +98,14 @@
         markerGroup.addTo(map);
 
         map.fitBounds(markerGroup.getBounds());
+
+        var t1 = performance.now();
+        markerGroup.once('invalidationFinish', function() {
+            console.log('invalidation', performance.now() - t1);
+        });
+        markerGroup.once('calculationFinish', function() {
+            console.log('calc', performance.now() - t1);
+        });
     });
 </script>
 </body>
