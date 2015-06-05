@@ -44,9 +44,30 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         this._zoomReady = {};
 
+        this.setMaxZoom(options.maxZoom);
+
         this.on('invalidationFinish', function() {
             this._map.getPanes().markerPane.style.display = 'block';
         });
+    },
+
+    setMaxZoom: function(zoom) {
+        if (isNaN(zoom)) return;
+        if (zoom > 19) {
+            this._maxZoom = 19;
+        } else {
+            this._maxZoom = zoom;
+        }
+        this._userMaxZoom = true;
+    },
+
+    _getMaxZoom: function() {
+        var maxZoom = this._map.getMaxZoom();
+        if (this._userMaxZoom && maxZoom < this._maxZoom) {
+            return this._maxZoom;
+        } else {
+            return maxZoom;
+        }
     },
 
     _getLevels: function(zoom) {
@@ -97,13 +118,15 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _prepareMarker: function(layer) {
-        var markerPoint,
-            zoom = this._maxZoom;
+        var zoom = this._getMaxZoom();
         for (; zoom >= 0; zoom--) {
-            markerPoint = this._map.project(layer.getLatLng(), zoom); // calculate pixel position
-            layer._positions[zoom] = markerPoint;
-            layer.options.classForZoom = [];
+            this._setMarkerPosition(layer, zoom);
         }
+    },
+
+    _setMarkerPosition: function(layer, zoom) {
+        layer._positions[zoom] = this._map.project(layer.getLatLng(), zoom); // calculate pixel position
+        layer.options.classForZoom = [];
     },
 
     _calculateMarkersClassForEachZoom: function() {
@@ -116,10 +139,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._calculationBusy = true;
         this._zoomReady = {};
 
-        this._maxZoom = this._map.getMaxZoom();
-
         var currentZoom = this._map.getZoom();
-        var maxZoom = that._map.getMaxZoom();
+        var maxZoom = this._getMaxZoom();
         var zoomsToCalculate = [];
         for (var z = 1; z <= maxZoom; z++) {
             if (z != currentZoom) {
@@ -240,6 +261,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             // For the worst scenario
             var sizeAddition = Math.max(safeZone, margin);
 
+            if (!marker._positions[zoom]) {
+                this._setMarkerPosition(marker, zoom);
+            }
+
             var x = marker._positions[zoom].x - level.offset[0] - sizeAddition;
             var y = marker._positions[zoom].y - level.offset[1] - sizeAddition;
             var width = level.size[0] + sizeAddition * 2;
@@ -273,6 +298,11 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             maxY = 0;
 
         this.eachLayer(function(marker) {
+
+            if (!marker._positions[zoom]) {
+                this._setMarkerPosition(marker, zoom);
+            }
+
             markerPos = marker._positions[zoom];
             minX = Math.min(minX, markerPos.x);
             minY = Math.min(minY, markerPos.y);
@@ -402,7 +432,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     onAdd: function(map) {
         this._map = map;
-        this._maxZoom = this._map.getMaxZoom();
 
         map.on('zoomstart', this._zoomStart, this);
         map.on('zoomend', this._zoomEnd, this);
