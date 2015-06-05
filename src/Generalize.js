@@ -45,6 +45,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._zoomReady = {};
 
         this.setMaxZoom(options.maxZoom);
+        this.setMinZoom(options.minZoom);
 
         this.on('invalidationFinish', function() {
             this._map.getPanes().markerPane.style.display = 'block';
@@ -52,13 +53,21 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     setMaxZoom: function(zoom) {
-        if (isNaN(zoom)) return;
-        if (zoom > 19) {
+        if (isNaN(zoom) || zoom > 19) {
             this._maxZoom = 19;
+            this._userMaxZoom = false;
         } else {
             this._maxZoom = zoom;
+            this._userMaxZoom = true;
         }
-        this._userMaxZoom = true;
+    },
+
+    setMinZoom: function(zoom) {
+        if (isNaN(zoom) || zoom < 0 || zoom > this._maxZoom) {
+            this._minZoom = 0;
+        } else {
+            this._minZoom = zoom;
+        }
     },
 
     _getMaxZoom: function() {
@@ -67,6 +76,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             return this._maxZoom;
         } else {
             return maxZoom;
+        }
+    },
+
+    _getMinZoom: function() {
+        if (this._minZoom >= 0) {
+            return this._minZoom;
+        } else {
+            return 0;
         }
     },
 
@@ -119,7 +136,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     _prepareMarker: function(layer) {
         var zoom = this._getMaxZoom();
-        for (; zoom >= 0; zoom--) {
+        var minZoom = this._getMinZoom();
+        for (; zoom >= minZoom; zoom--) {
             this._setMarkerPosition(layer, zoom);
         }
     },
@@ -142,7 +160,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var currentZoom = this._map.getZoom();
         var maxZoom = this._getMaxZoom();
         var zoomsToCalculate = [];
-        for (var z = 1; z <= maxZoom; z++) {
+        for (var z = this._getMinZoom(); z <= maxZoom; z++) {
             if (z != currentZoom) {
                 zoomsToCalculate.push(z);
             }
