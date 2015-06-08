@@ -52,38 +52,34 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         });
     },
 
-    setMaxZoom: function(zoom) {
-        if (isNaN(zoom) || zoom > 19) {
-            this._maxZoom = 19;
-            this._userMaxZoom = false;
-        } else {
-            this._maxZoom = zoom;
-            this._userMaxZoom = true;
+    setMaxZoom: function(maxZoom) {
+        if (!isNaN(maxZoom) && maxZoom <= 19) {
+            this._maxZoom = maxZoom;
         }
     },
 
-    setMinZoom: function(zoom) {
-        if (isNaN(zoom) || zoom < 0 || zoom > this._maxZoom) {
-            this._minZoom = 0;
-        } else {
-            this._minZoom = zoom;
+    setMinZoom: function(minZoom) {
+        if (!isNaN(minZoom) && minZoom >= 0) {
+            if (minZoom > this._getMaxZoom()) {
+                throw new Error('Min zoom set more then max zoom');
+            }
+            this._minZoom = minZoom;
         }
     },
 
     _getMaxZoom: function() {
-        var maxZoom = this._map.getMaxZoom();
-        if (this._userMaxZoom && maxZoom < this._maxZoom) {
+        if (this._maxZoom) {
             return this._maxZoom;
         } else {
-            return maxZoom;
+            return this._map.getMaxZoom();
         }
     },
 
     _getMinZoom: function() {
-        if (this._minZoom >= 0) {
+        if (this._minZoom) {
             return this._minZoom;
         } else {
-            return 0;
+            return this._map.getMinZoom();
         }
     },
 
