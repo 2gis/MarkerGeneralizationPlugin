@@ -889,7 +889,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var sizeAddition = Math.max(safeZone, margin);
 
             if (!marker._positions[zoom]) {
-                this._setMarkerPosition(marker, zoom);
+                that._setMarkerPosition(marker, zoom);
             }
 
             var x = marker._positions[zoom].x - level.offset[0] - sizeAddition;
