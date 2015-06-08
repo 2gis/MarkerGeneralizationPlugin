@@ -674,14 +674,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     setMinZoom: function(minZoom) {
         if (!isNaN(minZoom) && minZoom >= 0) {
             if (minZoom > this._getMaxZoom()) {
-                throw new Error('Min zoom set more then max zoom');
+                throw new Error('Min zoom must be smaller than max zoom');
             }
             this._minZoom = minZoom;
         }
     },
 
     _getMaxZoom: function() {
-        if (this._maxZoom) {
+        if (!isNaN(this._maxZoom)) {
             return this._maxZoom;
         } else {
             return this._map.getMaxZoom();
