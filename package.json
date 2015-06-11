@@ -1,6 +1,6 @@
 {
   "name": "MarkerGeneralizationPlugin",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Plugin for marker generalisation in 2gis maps and leaflet",
   "main": "dist/generalize.min.js",
   "repository" : {
