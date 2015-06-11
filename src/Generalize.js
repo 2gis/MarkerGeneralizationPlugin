@@ -170,7 +170,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             L.Util.UnblockingFor(function(zoomIndex, cb) {
                 var z = zoomsToCalculate[zoomIndex];
                 that._calculateMarkersClassForZoom(z, cb);
-            }, maxZoom - 1, function() {
+            }, zoomsToCalculate.length, function() {
                 that._calculationBusy = false;
                 that.fireEvent('calculationFinish');
                 if (that._calculationQueued) {
@@ -314,7 +314,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.eachLayer(function(marker) {
 
             if (!marker._positions[zoom]) {
-                this._setMarkerPosition(marker, zoom);
+                that._setMarkerPosition(marker, zoom);
             }
 
             markerPos = marker._positions[zoom];
