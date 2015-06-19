@@ -215,17 +215,19 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         currentLevel = levels[0];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
-            currentMarker = this._prepareMarker(i);
+            currentMarker = this._prepareMarker(this._priorityMarkers[i]);
             tmpMarkers[currentLevel].push(currentMarker);
             tree.insert(makeNode(currentMarker, currentLevel));
         }
 
-        var items, pendingMarkers = [],
+        var items,
             seekMarkers = this._otherMarkers.slice();
 
-        L.Util.UnblockingFor(processAllMarkers, levels.length, updateMarkerStyles);
+        L.Util.UnblockingFor(processAllMarkers, levels.length, zoomReady);
 
         function processAllMarkers(levelIndex, levelsCallback) {
+            var pendingMarkers = [];
+            var totalMarkesCount = seekMarkers.length;
             currentLevel = levels[levelIndex];
 
             if (levels[levelIndex].size[0] == 0 && levels[levelIndex].size[1] == 0) {
@@ -233,39 +235,30 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 return;
             }
 
-            var totalMarkesCount = seekMarkers.length;
-
             for (var i = 0; i < totalMarkesCount; i++) {
-                if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
-                    currentMarker = makeNode(seekMarkers[i], currentLevel);
-                    items = tree.search(currentMarker);
+                var currentMarker = seekMarkers[i];
 
-                    if (that._validateGroup(currentMarker, items)) {
-                        tree.insert(currentMarker);
-                        tmpMarkers[levelIndex].push(seekMarkers[i]);
+                if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
+                    var node = makeNode(currentMarker, currentLevel);
+                    items = tree.search(node);
+
+                    if (that._validateGroup(node, items)) {
+                        tree.insert(node);
+                        currentMarker.options.classForZoom[zoom] = currentLevel.className;
+                        tmpMarkers[levelIndex].push(currentMarker);
                     } else {
-                        pendingMarkers.push(seekMarkers[i]);
+                        pendingMarkers.push(currentMarker);
                     }
                 } else {
-                    pendingMarkers.push(seekMarkers[i]);
+                    pendingMarkers.push(currentMarker);
                 }
             }
 
             seekMarkers = pendingMarkers.slice();
-            pendingMarkers = [];
             levelsCallback();
         }
 
-        function updateMarkerStyles() {
-            var groupInd, markerInd, group, groupClass, currMarker;
-            for (groupInd = 0; groupInd < levels.length; groupInd++) {
-                groupClass = levels[groupInd].className;
-                group = levels[groupInd];
-                for (markerInd = 0; markerInd < tmpMarkers[groupInd].length; markerInd++) {
-                    currMarker = tmpMarkers[groupInd][markerInd];
-                    currMarker.options.classForZoom[zoom] = groupClass;
-                }
-            }
+        function zoomReady() {
             that._zoomReady[zoom] = true;
             // if finish calculate styles for current level
             if (that._map.getZoom() == zoom) that._invalidateMarkers();
@@ -379,10 +372,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             // if marker in viewport
             if (pixelBounds.contains(markerPos)) {
                 if (groupClass != 'HIDDEN' && markerState != groupClass) {
-                    this._map.addLayer(marker);
+                    if (!marker._map) {
+                        this._map.addLayer(marker);
+                    }
 
                     if (markerState != groupClass) {
-                        if (markerState) {
+                        if (markerState && markerState != 'HIDDEN') {
                             L.DomUtil.removeClass(marker._icon, markerState);
                         }
                         L.DomUtil.addClass(marker._icon, groupClass);
@@ -392,7 +387,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 groupClass = 'HIDDEN';
             }
 
-            if (groupClass == 'HIDDEN' && this._map) {
+            if (groupClass == 'HIDDEN' && marker._map) {
                 this._map.removeLayer(marker);
             }
 
