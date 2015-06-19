@@ -233,36 +233,27 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 return;
             }
 
-            var markersInBucket = 1000;
             var totalMarkesCount = seekMarkers.length;
-            var iterationsCount = Math.ceil(totalMarkesCount / markersInBucket);
 
-            L.Util.UnblockingFor(processBucket, iterationsCount, onBucketFinish);
+            for (var i = 0; i < totalMarkesCount; i++) {
+                if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
+                    currentMarker = makeNode(seekMarkers[i], currentLevel);
+                    items = tree.search(currentMarker);
 
-            function processBucket(bucketIndex, markersCallback) {
-                for (var i = markersInBucket * bucketIndex; i < markersInBucket * (bucketIndex + 1) && i < totalMarkesCount; i++) {
-                    if (that.options.checkMarkerMinimumLevel(seekMarkers[i]) <= levelIndex) {
-                        currentMarker = makeNode(seekMarkers[i], currentLevel);
-                        items = tree.search(currentMarker);
-
-                        if (that._validateGroup(currentMarker, items)) {
-                            tree.insert(currentMarker);
-                            tmpMarkers[levelIndex].push(seekMarkers[i]);
-                        } else {
-                            pendingMarkers.push(seekMarkers[i]);
-                        }
+                    if (that._validateGroup(currentMarker, items)) {
+                        tree.insert(currentMarker);
+                        tmpMarkers[levelIndex].push(seekMarkers[i]);
                     } else {
                         pendingMarkers.push(seekMarkers[i]);
                     }
+                } else {
+                    pendingMarkers.push(seekMarkers[i]);
                 }
-                markersCallback();
             }
 
-            function onBucketFinish() {
-                seekMarkers = pendingMarkers.slice();
-                pendingMarkers = [];
-                levelsCallback();
-            }
+            seekMarkers = pendingMarkers.slice();
+            pendingMarkers = [];
+            levelsCallback();
         }
 
         function updateMarkerStyles() {
