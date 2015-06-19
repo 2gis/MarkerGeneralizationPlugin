@@ -67,7 +67,7 @@
             className: 'marker'
         });
         var i, markerArr = [];
-        for (i = 0; i < 5000; i++) {
+        for (i = 0; i < 100000; i++) {
             markerArr.push(L.marker([markers[i][1], markers[i][0]], {
                 icon: markerIcon,
                 isAdvertizing: Math.random() < 0.01
@@ -84,7 +84,8 @@
 //                return minimumLevel;
             },
             minZoom: 8,
-            maxZoom: 18
+            maxZoom: 18,
+            viewportHideOffset: 1
         });
         var testMarker = L.marker([55.011216355382, 82.874299953485], {icon: markerIcon, count:0});
 //    testMarker.showAlways = true;
