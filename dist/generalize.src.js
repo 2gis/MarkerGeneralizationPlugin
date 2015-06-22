@@ -1064,9 +1064,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         map.on('zoomend', this._zoomEnd, this);
         map.on('dragend', this._dragEnd, this);
 
-        this.eachLayer(this._prepareMarker, this);
-        // wait user map manipulation to know correct init zoom
-        setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+        if (this.getLayers().length) {
+            this.eachLayer(this._prepareMarker, this);
+            // wait user map manipulation to know correct init zoom
+            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+        }
+
         L.LayerGroup.prototype.onAdd.call(this, map);
     },
 
