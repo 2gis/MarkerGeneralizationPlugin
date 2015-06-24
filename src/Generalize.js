@@ -48,7 +48,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.setMinZoom(options.minZoom);
 
         this.on('invalidationFinish', function() {
-            this._map.getPanes().markerPane.style.display = 'block';
+            this._getPane().style.display = 'block';
         });
     },
 
@@ -395,8 +395,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         });
     },
 
+    _getPane: function() {
+        return this.options.pane || this._map.getPanes().markerPane;
+    },
+
     _zoomStart: function() {
-        this._map.getPanes().markerPane.style.display = 'none';
+        this._getPane().style.display = 'none';
     },
 
     _zoomEnd: function() {
