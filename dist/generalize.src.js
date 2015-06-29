@@ -1009,6 +1009,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _getPane: function() {
+        if (typeof this.options.pane == 'string') {
+            return this._map.getPanes().markerPane;
+        }
         return this.options.pane || this._map.getPanes().markerPane;
     },
 
