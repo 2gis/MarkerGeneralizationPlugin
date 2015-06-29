@@ -1021,7 +1021,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._hideMarkersOutOfViewPort();
     },
 
-    _dragEnd: function() {
+    _moveEnd: function() {
         this._hideMarkersOutOfViewPort();
     },
 
@@ -1068,7 +1068,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         map.on('zoomstart', this._zoomStart, this);
         map.on('zoomend', this._zoomEnd, this);
-        map.on('dragend', this._dragEnd, this);
+        map.on('moveend', this._moveEnd, this);
 
         if (this.getLayers().length) {
             this.eachLayer(this._prepareMarker, this);
