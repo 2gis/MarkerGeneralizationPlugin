@@ -642,7 +642,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         },
         checkMarkerMinimumLevel: function() {
             return 0;
-        }
+        },
+
+        // by default Layer has overlayPane, but we work with markers
+        pane: 'markerPane'
     },
     initialize: function(options) {
         L.Util.setOptions(this, options);
@@ -661,7 +664,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.setMinZoom(options.minZoom);
 
         this.on('invalidationFinish', function() {
-            this._getPane().style.display = 'block';
+            this.getPane().style.display = 'block';
         });
     },
 
@@ -1008,15 +1011,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         });
     },
 
-    _getPane: function() {
-        if (typeof this.options.pane == 'string') {
-            return this._map.getPanes().markerPane;
-        }
-        return this.options.pane || this._map.getPanes().markerPane;
-    },
-
     _zoomStart: function() {
-        this._getPane().style.display = 'none';
+        this.getPane().style.display = 'none';
     },
 
     _zoomEnd: function() {
