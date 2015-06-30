@@ -1083,7 +1083,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (!this._map) return;
         map.off('zoomstart', this._zoomStart, this);
         map.off('zoomend', this._zoomEnd, this);
-        map.off('dragend', this._dragEnd, this);
+        map.off('moveend', this._moveEnd, this);
 
         L.LayerGroup.prototype.onRemove.call(this, map);
 
