@@ -5,6 +5,8 @@ var concat = require('gulp-concat');
 gulp.task('default', function() {
     gulp.src([
         'src/rbush.js',
+        'src/MarkerClassList.js',
+        'src/ExtendedMarker.js',
         'src/Generalize.js'
     ])
         .pipe(concat('generalize.src.js'))

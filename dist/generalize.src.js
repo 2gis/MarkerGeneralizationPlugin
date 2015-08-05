@@ -611,6 +611,143 @@
 
 })();
 
+/**
+ * Icon internal classes mechanism
+ * Adds possibility to assign css classes to icon even if it is not rendered (yet).
+ * Classes will be assigned to icon when it is rendered.
+ */
+L.MarkerClassList = function(marker) {
+    this._classList = {};
+    this._marker = marker;
+};
+
+L.Util.extend(L.MarkerClassList.prototype, {
+    add: function(className) {
+        this._classList[className] = 1;
+        if (this._marker._icon) {
+            L.DomUtil.addClass(this._marker._icon, className);
+        }
+        return this;
+    },
+    remove: function(className) {
+        delete this._classList[className];
+        if (this._marker._icon) {
+            L.DomUtil.removeClass(this._marker._icon, className);
+        }
+        return this;
+    },
+    contains: function(className) {
+        return !!this._classList[className];
+    },
+    clear: function() {
+        if (!this._marker._icon) {
+            return;
+        }
+        for (var className in this._classList) {
+            L.DomUtil.removeClass(this._marker._icon, className);
+        }
+        this._classList = {};
+    },
+    toString: function() {
+        if (Object.keys) {
+            return Object.keys(this._classList).join(' ');
+        } else {
+            var classList = '';
+            for (var i in this._classList) {
+                classList += i +' ';
+            }
+        }
+    },
+    _addClasses: function() {
+        if (!this._marker._icon) {
+            return;
+        }
+        for (var className in this._classList) {
+            L.DomUtil.addClass(this._marker._icon, className);
+        }
+    }
+});
+
+L.markerClassList = function (marker) {
+    return new L.MarkerClassList(marker);
+};
+
+
+/**
+ * Extended marker:
+ * - has options to prevent deletion or hide during generalization
+ * - makes use of internal class list being applied to icon node
+ */
+L.MarkerEx = L.Marker.extend({
+    /**
+     * If we can use extended powers of current marker.
+     */
+    _extended: true,
+
+    /**
+     * Augment parent method to apply class names when icon is added on map
+     * @param map
+     */
+    onAdd: function (map) {
+        L.Marker.prototype.onAdd.apply(this, arguments);
+
+        if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
+            this._icon.style.display = 'block';
+        }
+
+        this.classes._addClasses();
+    },
+
+    /**
+     * Determine removal possibility and hide marker if required.
+     * @returns {boolean} If marker should be removed from map
+     */
+    onBeforeRemove: function() {
+        if (this._immunityLevel == this.IMMUNITY.NO_HIDE) {
+            return false;
+        }
+
+        if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
+            this._icon.style.display = 'none';
+            return false;
+        }
+
+        return true;
+    },
+
+    initialize: function() {
+        L.Marker.prototype.initialize.apply(this, arguments);
+        this.classes = L.markerClassList(this);
+    },
+
+    /**
+     * Marker immunity mechanism
+     */
+    IMMUNITY: {
+        NONE: 0, // Simple marker
+        NO_DELETE: 1, // Will stay on map during generalization (DOM node of the icon will not be deleted).
+        NO_HIDE: 2 // Will not be neither deleted nor hidden during generalization.
+    },
+    _immunityLevel: null,
+    immunifyForDeletion: function() {
+        this._immunityLevel = this.IMMUNITY.NO_DELETE;
+        return this;
+    },
+    immunifyForHide: function() {
+        this._immunityLevel = this.IMMUNITY.NO_HIDE;
+        return this;
+    },
+    revokeImmunity: function() {
+        this._immunityLevel = this.IMMUNITY.NONE;
+        return this;
+    }
+});
+
+L.markerEx = function (latlng, options) {
+    return new L.MarkerEx(latlng, options);
+};
+
+
 L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     options: {
         levels: [
@@ -981,22 +1118,20 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var groupClass = marker.options.classForZoom[zoom];
             var markerPos = marker._positions[zoom];
             var markerState = marker.options.state;
-            // Immunity levels
-            var persistMarkerNode = marker._icon && marker.data.immunityLevel == 'doNotDelete'; // If marker needs to exist on map even when hidden
-            var markerAlwaysShown = marker._icon && marker.data.immunityLevel == 'alwaysShow'; // If marker should be shown always
+
+            if (marker._immunityLevel && !marker._map) {
+                // Add immuned markers immediately
+                this._map.addLayer(marker);
+            }
 
             // if marker in viewport
             if (pixelBounds.contains(markerPos)) {
                 if (groupClass != 'HIDDEN' && markerState != groupClass) {
-                    if (persistMarkerNode) {
-                        marker._icon.style.display = 'block';
-                    }
-
                     if (!marker._map) {
                         this._map.addLayer(marker);
                     }
 
-                    if (marker._icon && markerState != groupClass) {
+                    if (markerState != groupClass) {
                         if (markerState && markerState != 'HIDDEN') {
                             L.DomUtil.removeClass(marker._icon, markerState);
                         }
@@ -1007,10 +1142,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 groupClass = 'HIDDEN';
             }
 
-            if (groupClass == 'HIDDEN' && marker._map && !markerAlwaysShown) {
-                if (persistMarkerNode) {
-                    marker._icon.style.display = 'none';
-                } else {
+            if (groupClass == 'HIDDEN') {
+                if (!marker.onBeforeRemove || (marker.onBeforeRemove && marker.onBeforeRemove())) {
                     this._map.removeLayer(marker);
                 }
             }

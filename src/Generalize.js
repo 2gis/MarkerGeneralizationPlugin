@@ -368,22 +368,20 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var groupClass = marker.options.classForZoom[zoom];
             var markerPos = marker._positions[zoom];
             var markerState = marker.options.state;
-            // Immunity levels
-            var persistMarkerNode = marker._icon && marker.data.immunityLevel == 'doNotDelete'; // If marker needs to exist on map even when hidden
-            var markerAlwaysShown = marker._icon && marker.data.immunityLevel == 'alwaysShow'; // If marker should be shown always
+
+            if (marker._immunityLevel && !marker._map) {
+                // Add immuned markers immediately
+                this._map.addLayer(marker);
+            }
 
             // if marker in viewport
             if (pixelBounds.contains(markerPos)) {
                 if (groupClass != 'HIDDEN' && markerState != groupClass) {
-                    if (persistMarkerNode) {
-                        marker._icon.style.display = 'block';
-                    }
-
                     if (!marker._map) {
                         this._map.addLayer(marker);
                     }
 
-                    if (marker._icon && markerState != groupClass) {
+                    if (markerState != groupClass) {
                         if (markerState && markerState != 'HIDDEN') {
                             L.DomUtil.removeClass(marker._icon, markerState);
                         }
@@ -394,10 +392,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 groupClass = 'HIDDEN';
             }
 
-            if (groupClass == 'HIDDEN' && marker._map && !markerAlwaysShown) {
-                if (persistMarkerNode) {
-                    marker._icon.style.display = 'none';
-                } else {
+            if (groupClass == 'HIDDEN') {
+                if (!marker.onBeforeRemove || (marker.onBeforeRemove && marker.onBeforeRemove())) {
                     this._map.removeLayer(marker);
                 }
             }
