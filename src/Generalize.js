@@ -133,6 +133,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         var oldMap = this._map;
 
+        // Don't allow markers to be added to map: we'll do it during invalidation.
         if (oldMap) {
             this._map = null;
         }

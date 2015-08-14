@@ -27,13 +27,13 @@ L.Util.extend(L.MarkerClassList.prototype, {
         return !!this._classList[className];
     },
     clear: function() {
+        this._classList = {};
         if (!this._marker._icon) {
             return;
         }
         for (var className in this._classList) {
             L.DomUtil.removeClass(this._marker._icon, className);
         }
-        this._classList = {};
     },
     toString: function() {
         if (Object.keys) {
