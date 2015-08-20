@@ -222,7 +222,15 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
 
         var items,
-            seekMarkers = this._otherMarkers.slice();
+            seekMarkers = [];
+
+        for (i = 0; i < this._otherMarkers.length; i++) {
+            currentMarker = this._otherMarkers[i];
+            if (currentMarker._generalizationImmune) {
+                continue;
+            }
+            seekMarkers.push(currentMarker);
+        }
 
         L.Util.UnblockingFor(processAllMarkers, levels.length, zoomReady);
 
