@@ -226,9 +226,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         for (i = 0; i < this._otherMarkers.length; i++) {
             currentMarker = this._otherMarkers[i];
-            if (currentMarker._immunityLevel) {
-                continue;
-            }
             seekMarkers.push(currentMarker);
         }
 
@@ -236,7 +233,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         function processAllMarkers(levelIndex, levelsCallback) {
             var pendingMarkers = [];
-            var totalMarkesCount = seekMarkers.length;
+            var totalMarkersCount = seekMarkers.length;
             currentLevel = levels[levelIndex];
 
             if (levels[levelIndex].size[0] == 0 && levels[levelIndex].size[1] == 0) {
@@ -244,7 +241,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 return;
             }
 
-            for (var i = 0; i < totalMarkesCount; i++) {
+            for (var i = 0; i < totalMarkersCount; i++) {
                 var currentMarker = seekMarkers[i];
 
                 if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
@@ -378,9 +375,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var markerPos = marker._positions[zoom];
             var markerState = marker.options.state;
 
-            if (marker._immunityLevel && !marker._map) {
-                // Add immuned markers immediately
-                this._map.addLayer(marker);
+            if (marker._immunityLevel) {
+                if (!marker._map) {
+                    this._map.addLayer(marker);
+                }
+
+                if (markerState != groupClass && groupClass != 'HIDDEN') {
+                    L.DomUtil.addClass(marker._icon, groupClass);
+                }
             }
 
             // if marker in viewport
@@ -406,7 +408,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                     this._map.removeLayer(marker);
                 }
             }
-
             marker.options.state = groupClass;
         }, this);
 
@@ -419,7 +420,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     addLayer: function(layer) {
         this._addLayer(layer);
-        if (this._map) {
+        if (this._map && !layer._immunityLevel) {
             this._prepareMarker(layer);
             this._calculateMarkersClassForEachZoom();
             this._invalidateMarkers();
