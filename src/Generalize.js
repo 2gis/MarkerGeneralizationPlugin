@@ -226,7 +226,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         for (i = 0; i < this._otherMarkers.length; i++) {
             currentMarker = this._otherMarkers[i];
-            if (currentMarker._generalizationImmune) {
+            if (currentMarker._immunityLevel) {
                 continue;
             }
             seekMarkers.push(currentMarker);

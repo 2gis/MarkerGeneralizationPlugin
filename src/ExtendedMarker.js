@@ -9,10 +9,6 @@ L.MarkerEx = L.Marker.extend({
      */
     _extended: true,
 
-    /**
-     * Do not consider this marker in generalization
-     */
-    _generalizationImmune: false,
 
     /**
      * Augment parent method to apply class names when icon is added on map
@@ -70,9 +66,6 @@ L.MarkerEx = L.Marker.extend({
     revokeImmunity: function() {
         this._immunityLevel = this.IMMUNITY.NONE;
         return this;
-    },
-    generalizationImmunity: function() {
-        this._generalizationImmune = true;
     }
 });
 

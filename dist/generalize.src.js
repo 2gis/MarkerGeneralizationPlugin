@@ -684,10 +684,6 @@ L.MarkerEx = L.Marker.extend({
      */
     _extended: true,
 
-    /**
-     * Do not consider this marker in generalization
-     */
-    _generalizationImmune: false,
 
     /**
      * Augment parent method to apply class names when icon is added on map
@@ -711,7 +707,6 @@ L.MarkerEx = L.Marker.extend({
         if (this._immunityLevel == this.IMMUNITY.NO_HIDE) {
             return false;
         }
-
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
             this._icon.style.display = 'none';
             return false;
@@ -745,9 +740,6 @@ L.MarkerEx = L.Marker.extend({
     revokeImmunity: function() {
         this._immunityLevel = this.IMMUNITY.NONE;
         return this;
-    },
-    generalizationImmunity: function() {
-        this._generalizationImmune = true;
     }
 });
 
@@ -984,7 +976,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         for (i = 0; i < this._otherMarkers.length; i++) {
             currentMarker = this._otherMarkers[i];
-            if (currentMarker._generalizationImmune) {
+            if (currentMarker._immunityLevel) {
                 continue;
             }
             seekMarkers.push(currentMarker);
