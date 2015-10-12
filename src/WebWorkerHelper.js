@@ -3,7 +3,17 @@ L.WebWorkerHelper = {
         msgHandlers = {};
         options = {};
         registerMsgHandler = function(handlerName, handler) {
-            msgHandlers[handlerName] = handler;
+            if (!msgHandlers[handlerName]) {
+                msgHandlers[handlerName] = handler;
+            }
+        };
+
+        dropMsgHandler = function(handlerName) {
+            delete msgHandlers[handlerName];
+        };
+
+        send = function(message) {
+            postMessage(JSON.stringify(message));
         };
 
         self.onmessage = function(event) {
@@ -17,9 +27,12 @@ L.WebWorkerHelper = {
                             options[i] = elem;
                         }
                     }
+                    break;
                 default:
+                    var opts = JSON.parse(event.data.buf);
+                    opts.type = event.data.type;
                     if (msgHandlers[event.data.type]) {
-                        msgHandlers[event.data.type](event.data);
+                        msgHandlers[event.data.type](opts);
                     }
             }
         }
@@ -57,13 +70,32 @@ L.WebWorkerHelper = {
 
         worker._messageListeners = {};
         worker.onmessage = function(e) {
-            if (worker._messageListeners[e.data.type]) {
-                worker._messageListeners[e.data.type](e.data);
+            var data = JSON.parse(e.data);
+            if (worker._messageListeners[data.type]) {
+                worker._messageListeners[data.type](data);
             }
         };
 
+        worker._queue = [];
+
         worker.registerMsgHandler = function(eventType, handler) {
-            worker._messageListeners[eventType] = handler;
+            if (!worker._messageListeners[eventType]) {
+                worker._messageListeners[eventType] = handler;
+            }
+        };
+
+        worker.dropMsgHandler = function(eventType) {
+            delete worker._messageListeners[eventType];
+        };
+
+        worker.send = function(msgName, content) {
+            setTimeout(function() {
+                var arrbuf = JSON.stringify(content);
+                worker.postMessage({
+                    type: msgName,
+                    buf: arrbuf
+                });
+            }, 0);
         };
 
         return worker;

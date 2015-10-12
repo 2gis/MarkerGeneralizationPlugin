@@ -33,7 +33,7 @@ L.MarkerClassCalculation = {
                 workerData.currentLevel = workerData.levels[levelIndex];
 
                 if (workerData.currentLevel.size[0] == 0 && workerData.currentLevel.size[1] == 0) {
-                    postMessage({
+                    send({
                         type: 'markersProcessingFinished',
                         markers: [],
                         zoom: workerData.currentZoom
@@ -62,7 +62,7 @@ L.MarkerClassCalculation = {
                 }
 
                 workerData.seekMarkers = pendingMarkers.slice();
-                postMessage({
+                send({
                     type: 'markersChunkReady',
                     zoomClasses: zoomClasses,
                     priorityLevel: levelIndex,
@@ -97,7 +97,7 @@ L.MarkerClassCalculation = {
 
             registerMsgHandler('calc', function (opts) {
                 var i;
-                postMessage({
+                send({
                     type: 'markersProcessingStarted'
                 });
 
@@ -132,7 +132,7 @@ L.MarkerClassCalculation = {
                     processAllMarkers(i, workerData);
                 }
 
-                postMessage({
+                send({
                     type: 'markersProcessingFinished',
                     zoom: workerData.currentZoom
                 });
