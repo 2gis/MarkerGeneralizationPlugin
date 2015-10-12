@@ -24,7 +24,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         viewportHideOffset: 1,
         checkMarkersIntersection: function(currentMarker, checkingMarker) {
             var distance = Math.max(currentMarker.safeZone, checkingMarker.margin);
-            return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2) || 
+            return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2) ||
                Math.abs(currentMarker.markerY - checkingMarker.markerY) > (distance + currentMarker.markerHeight / 2 + checkingMarker.markerHeight / 2);
         },
         checkMarkerMinimumLevel: function() {
@@ -424,7 +424,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _zoomEnd: function() {
-        this._getPane().style.display = 'block';
+        this.getPane().style.display = 'block';
     },
 
     addLayer: function(layer) {
@@ -441,10 +441,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         var i;
         for (i = 0; i < layersArray.length; i++) {
             this._addLayer(layersArray[i]);
+            this._prepareMarker(layersArray[i]);
         }
 
         if (this._map) {
-            this.eachLayer(this._prepareMarker, this);
             var that = this;
             setTimeout(function() {
                 that._calculateMarkersClassForEachZoom(layersArray);

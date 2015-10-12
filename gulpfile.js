@@ -6,6 +6,8 @@ gulp.task('default', function() {
     gulp.src([
         'src/rbush.js',
         'src/MarkerClassList.js',
+        'src/ClassCalculation.js',
+        'src/WebWorkerHelper.js',
         'src/ExtendedMarker.js',
         'src/Generalize.js'
     ])
