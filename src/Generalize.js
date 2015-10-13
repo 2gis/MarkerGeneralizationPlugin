@@ -1,5 +1,7 @@
 L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     options: {
+        useStreamingGeneralization: false,
+        chunkSize: 20,
         levels: [
             {
                 margin: 30,
@@ -43,20 +45,23 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     initialize: function(options) {
         L.Util.setOptions(this, options);
 
+        this._layersCount = 0;
         this._layers = {};
         this._layersById = {};
 
         this._priorityMarkers = [];
         this._otherMarkers = [];
 
-        this._workerOptions = {
-            checkMarkersIntersection: options.checkMarkersIntersection,
-            checkMarkerMinimumLevel: options.checkMarkerMinimumLevel,
-            getMarkerFields: options.getMarkerFields,
-            getMarkerId: options.getMarkerId
-        };
+        if (this.options.useStreamingGeneralization) {
+            this._workerOptions = {
+                checkMarkersIntersection: options.checkMarkersIntersection,
+                checkMarkerMinimumLevel: options.checkMarkerMinimumLevel,
+                getMarkerFields: options.getMarkerFields,
+                getMarkerId: options.getMarkerId
+            };
 
-        this._worker = L.MarkerClassCalculation.createCalculationWorker(this._workerOptions);
+            this._worker = L.MarkerClassCalculation.createCalculationWorker(this._workerOptions);
+        }
 
         this.setMaxZoom(options.maxZoom);
         this.setMinZoom(options.minZoom);
@@ -148,6 +153,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (oldMap) {
             this._map = null;
         }
+        this._layersCount++;
         this._layersById[this.options.getMarkerId(layer)] = layer;
         L.LayerGroup.prototype.addLayer.call(this, layer);
         if (oldMap) {
@@ -210,12 +216,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             levels = this._getLevels(zoom),
             that = this;
 
+        var incomingEventName = 'markersChunkReady';
+        var outgoingEventName = 'calc';
+
         var message = {
             levels: levels,
             markers: this._flattenMarkers(layersChunk),
             currentZoom: zoom
         };
-
 
         /*
             TODO:
@@ -223,8 +231,16 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             - Сильная конкурентность - плохо, все виснет. Надо вернуть очередь, но возможно имеет смысл отсылать
             сообщения ограниченными пачками (сейчас шлется неограниченными и виснет)
             - Посмотреть где еще можно разблочить евент-луп, а где наоборот это излишне.
+
+
+
+            - Разобраться в инвалидации - возможно там много лишнего. state какой-то, прямые манипуляции с DOM...
+            - Разобраться, кто замораживает основной поток в первые секунды. Возможно это какие-то форматтеры. Может запрос на маркеры тоже в воркер унести?
          */
-        this._worker.registerMsgHandler('markersChunkReady', function(event) {
+
+        this._worker.registerExpectedReturns(outgoingEventName, incomingEventName);
+
+        this._worker.registerMsgHandler(incomingEventName, function(event) {
             if (that._map.getZoom() == event.zoom) {
                 setTimeout(function() {
                     that._invalidateMarkers(null, event.zoomClasses);
@@ -239,7 +255,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             callback();
         });
 
-        this._worker.send('calc', message);
+        setTimeout(function() {
+            that._worker.send(outgoingEventName, message);
+        }, 0);
     },
 
     _flattenMarkers: function(markers) {
@@ -335,44 +353,50 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _invalidateSingleMarker: function(marker, pixelBounds, zoom) {
-        var groupClass = marker.options.classForZoom[zoom];
-        var markerPos = marker._positions[zoom];
-        var markerState = marker.options.state;
-
-        if (marker._immunityLevel) {
-            if (!marker._map) {
-                this._map.addLayer(marker);
-            }
-
-            if (markerState != groupClass && groupClass != 'HIDDEN') {
-                L.DomUtil.addClass(marker._icon, groupClass);
-            }
+        if (!marker._map) {
+            this._map.addLayer(marker);
+            marker.classes.add('_general_bullet');
         }
 
-        // if marker in viewport
-        if (pixelBounds.contains(markerPos)) {
-            if (groupClass != 'HIDDEN' && markerState != groupClass) {
-                if (!marker._map) {
-                    this._map.addLayer(marker);
-                }
 
-                if (groupClass && markerState != groupClass) {
-                    if (markerState && markerState != 'HIDDEN') {
-                        L.DomUtil.removeClass(marker._icon, markerState);
-                    }
-                    L.DomUtil.addClass(marker._icon, groupClass);
-                }
-            }
-        } else {
-            groupClass = 'HIDDEN';
-        }
-
-        if (groupClass == 'HIDDEN') {
-            if (!marker.onBeforeRemove || (marker.onBeforeRemove && marker.onBeforeRemove())) {
-                this._map.removeLayer(marker);
-            }
-        }
-        marker.options.state = groupClass;
+        //var groupClass = marker.options.classForZoom[zoom];
+        //var markerPos = marker._positions[zoom];
+        //var markerState = marker.options.state;
+        //
+        //if (marker._immunityLevel) {
+        //    if (!marker._map) {
+        //        this._map.addLayer(marker);
+        //    }
+        //
+        //    if (markerState != groupClass && groupClass != 'HIDDEN') {
+        //        L.DomUtil.addClass(marker._icon, groupClass);
+        //    }
+        //}
+        //
+        //// if marker in viewport
+        //if (pixelBounds.contains(markerPos)) {
+        //    if (groupClass != 'HIDDEN' && markerState != groupClass) {
+        //        if (!marker._map) {
+        //            this._map.addLayer(marker);
+        //        }
+        //
+        //        if (groupClass && markerState != groupClass) {
+        //            if (markerState && markerState != 'HIDDEN') {
+        //                L.DomUtil.removeClass(marker._icon, markerState);
+        //            }
+        //            L.DomUtil.addClass(marker._icon, groupClass);
+        //        }
+        //    }
+        //} else {
+        //    groupClass = 'HIDDEN';
+        //}
+        //
+        //if (groupClass == 'HIDDEN') {
+        //    if (!marker.onBeforeRemove || (marker.onBeforeRemove && marker.onBeforeRemove())) {
+        //        this._map.removeLayer(marker);
+        //    }
+        //}
+        //marker.options.state = groupClass;
     },
 
     _zoomStart: function() {
@@ -394,8 +418,20 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     addLayers: function(layersArray) {
-        var i;
-        for (i = 0; i < layersArray.length; i++) {
+        var that = this;
+        if (this.options.useStreamingGeneralization && this._layersCount > 0) {
+            // split to chunks, except first time
+            for (var i = 0; i < layersArray.length; i+= this.options.chunkSize) {
+                this._addLayers(layersArray.slice(i, i + that.options.chunkSize));
+            }
+        } else {
+            this._addLayers(layersArray);
+        }
+        return this;
+    },
+
+    _addLayers: function(layersArray) {
+        for (var i = 0; i < layersArray.length; i++) {
             this._addLayer(layersArray[i]);
             this._prepareMarker(layersArray[i]);
         }
@@ -403,11 +439,11 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (this._map) {
             this._calculateMarkersClassForEachZoom(layersArray);
         }
-        return this;
     },
 
     _removeLayer: function(layer) {
         var beforeLength = this._layers.length;
+        this._layersCount--;
         delete this._layersById[this.options.getMarkerId(layer)];
         L.LayerGroup.prototype.removeLayer.call(this, layer);
         return beforeLength - this._layers.length != 0;

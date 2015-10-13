@@ -71,12 +71,26 @@ L.WebWorkerHelper = {
         worker._messageListeners = {};
         worker.onmessage = function(e) {
             var data = JSON.parse(e.data);
+
             if (worker._messageListeners[data.type]) {
                 worker._messageListeners[data.type](data);
+            }
+
+            if (worker._semaphoresDelta[data.type]) {
+                worker._nowProcessing += worker._semaphoresDelta[data.type];
+                worker._processQueue();
             }
         };
 
         worker._queue = [];
+        worker._packetChunkSize = 3;
+        worker._nowProcessing = 0;
+        worker._semaphoresDelta = {};
+
+        worker.registerExpectedReturns = function(messageName, replyMessageName) {
+            worker._semaphoresDelta[messageName] = 1;
+            worker._semaphoresDelta[replyMessageName] = -1;
+        };
 
         worker.registerMsgHandler = function(eventType, handler) {
             if (!worker._messageListeners[eventType]) {
@@ -89,13 +103,24 @@ L.WebWorkerHelper = {
         };
 
         worker.send = function(msgName, content) {
-            setTimeout(function() {
-                var arrbuf = JSON.stringify(content);
-                worker.postMessage({
-                    type: msgName,
-                    buf: arrbuf
-                });
-            }, 0);
+            worker._queue.push({name: msgName, content: content});
+            setTimeout(worker._processQueue, 0);
+        };
+
+        worker._processQueue = function() {
+            if (worker._nowProcessing > worker._packetChunkSize) return;
+
+            var job = worker._queue.shift();
+            if (!job) return;
+
+            if (worker._semaphoresDelta[job.name]) {
+                worker._nowProcessing += worker._semaphoresDelta[job.name];
+            }
+            var arrbuf = JSON.stringify(job.content);
+            worker.postMessage({
+                type: job.name,
+                buf: arrbuf
+            });
         };
 
         return worker;
