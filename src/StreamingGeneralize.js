@@ -15,21 +15,21 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
 
     addLayers: function(layersArray) {
         var that = this;
-        if (this._layersCount > 0) {
-            // split to chunks, except first time
-            for (var i = 0; i < layersArray.length; i+= this.options.chunkSize) {
-                L.MarkerGeneralizeGroup.prototype.addLayers.call(this, layersArray.slice(i, i + that.options.chunkSize));
-            }
-        } else {
+        //if (this._layersCount > 0) {
+        //    // split to chunks, except first time
+        //    for (var i = 0; i < layersArray.length; i+= this.options.chunkSize) {
+        //        L.MarkerGeneralizeGroup.prototype.addLayers.call(this, layersArray.slice(i, i + that.options.chunkSize));
+        //    }
+        //} else {
             L.MarkerGeneralizeGroup.prototype.addLayers.call(this, layersArray);
-        }
+        //}
         return this;
     },
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-    _calculateMarkersClassForEachZoom: function(layersChunk) {
+    _calculateMarkersClassForEachZoom: function(layersChunk, onFinish) {
         var that = this;
 
         var currentZoom = this._map.getZoom();
@@ -48,6 +48,7 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
             that._calculateMarkersClassForZoom(layersChunk, zoomsToCalculate[k], function(zm) {
                 sem--;
                 if (sem === 0) {
+                    if (onFinish) onFinish();
                     that.fireEvent('calculationFinish');
                 }
             });
@@ -76,17 +77,15 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
 
         /*
             TODO:
+            - Разобраться, кто замораживает основной поток в первые секунды. Возможно это какие-то форматтеры. Может запрос на маркеры тоже в воркер унести? - TODO ПОПРОБОВАТЬ!
             - Посмотреть где еще можно разблочить евент-луп, а где наоборот это излишне.
-            - Разобраться, кто замораживает основной поток в первые секунды. Возможно это какие-то форматтеры. Может запрос на маркеры тоже в воркер унести?
          */
 
         this._worker.registerExpectedReturns(outgoingEventName, incomingEventName);
 
         this._worker.registerMsgHandler(incomingEventName, function(event) {
             if (that._map.getZoom() == event.zoom) {
-                setTimeout(function() {
-                    that._invalidateMarkers(null, event.zoomClasses);
-                }, 0);
+                that._invalidateMarkers(null, event.zoomClasses);
             } else {
                 for (var i in event.zoomClasses) {
                     that._applyClasses(that._layersById[i], event.zoomClasses, event.zoom);
@@ -96,14 +95,14 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
 
         this._worker.registerMsgHandler('markersProcessingFinished', function(event) {
             if (event.zoom == that._map.getZoom()) {
-                that.fireEvent('invalidationFinish');
+                that.fireEvent('markersProcessingFinish');
             }
             callback(event.zoom);
         });
 
-        setTimeout(function() {
+        requestAnimationFrame(function() {
             that._worker.send(outgoingEventName, message);
-        }, 0);
+        });
     },
 
     _flattenMarkers: function(markers) {
@@ -111,6 +110,8 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
             return [];
         }
 
+        this._tt = this._tt || 0;
+        var tt = new Date().getTime();
         for (var i in markers) {
             this._prepareMarker(markers[i]);
         }
@@ -124,6 +125,8 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
                 result[j][fields[k]] = markers[j][fields[k]];
             }
         }
+
+        this._tt += (new Date().getTime() - tt);
 
         return result;
     },
@@ -154,6 +157,9 @@ L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
                 this._invalidateSingleMarker(this._layersById[i], pixelBounds, zoom);
             }
         }
+
+        console.log('Inv finished');
+        this.fireEvent('invalidationFinish');
     }
 });
 

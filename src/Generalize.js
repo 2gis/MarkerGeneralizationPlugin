@@ -34,8 +34,10 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._addLayer(layer);
         if (this._map) {
             this._prepareMarker(layer);
-            this._calculateMarkersClassForEachZoom([layer]);
-            this._invalidateMarkers();
+            var that = this;
+            this._calculateMarkersClassForEachZoom([layer], function() {
+                that._invalidateMarkers();
+            });
         }
         return this;
     },
@@ -55,7 +57,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (this.getLayers().length) {
             this.eachLayer(this._prepareMarker, this);
             // wait user map manipulation to know correct init zoom
-            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+            requestAnimationFrame(this._calculateMarkersClassForEachZoom.bind(this));
         }
     },
 
@@ -429,6 +431,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _applyClasses: function(marker, zoomClasses, zoom) {
+        if (!marker) return;
         var markerId = this.options.getMarkerId(marker);
         if (zoomClasses[markerId] && zoomClasses[markerId][zoom] && marker.options.classForZoom[zoom]) {
             marker.options.classForZoom[zoom] = zoomClasses[markerId][zoom];
@@ -436,6 +439,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     },
 
     _invalidateSingleMarker: function(marker, pixelBounds, zoom) {
+        if (!marker) return;
+
         var groupClass = marker.options.classForZoom[zoom];
         var markerPos = marker._positions[zoom];
         var markerState = marker.options.state;

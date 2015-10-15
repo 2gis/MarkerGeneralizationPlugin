@@ -78,12 +78,12 @@ L.WebWorkerHelper = {
 
             if (worker._semaphoresDelta[data.type]) {
                 worker._nowProcessing += worker._semaphoresDelta[data.type];
-                worker._processQueue();
+                requestAnimationFrame(worker._processQueue);
             }
         };
 
         worker._queue = [];
-        worker._packetChunkSize = 3;
+        worker._packetChunkSize = 2;
         worker._nowProcessing = 0;
         worker._semaphoresDelta = {};
 
@@ -104,7 +104,7 @@ L.WebWorkerHelper = {
 
         worker.send = function(msgName, content) {
             worker._queue.push({name: msgName, content: content});
-            setTimeout(worker._processQueue, 0);
+            requestAnimationFrame(worker._processQueue);
         };
 
         worker._processQueue = function() {
