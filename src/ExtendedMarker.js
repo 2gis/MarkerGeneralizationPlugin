@@ -15,9 +15,6 @@ L.MarkerEx = L.Marker.extend({
      * @param map
      */
     onAdd: function (map) {
-
-        this._zoomAnimated = false;
-
         L.Marker.prototype.onAdd.apply(this, arguments);
 
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
@@ -25,6 +22,11 @@ L.MarkerEx = L.Marker.extend({
         }
 
         this.classes._addClasses();
+    },
+
+    getEvents: function() {
+        this._zoomAnimated = false;
+        return L.Marker.prototype.getEvents.apply(this, arguments);
     },
 
     /**
