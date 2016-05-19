@@ -9,15 +9,16 @@ L.MarkerEx = L.Marker.extend({
      */
     _extended: true,
 
+    /**
+     * Do not consider this marker in generalization
+     */
+    _generalizationImmune: false,
 
     /**
      * Augment parent method to apply class names when icon is added on map
      * @param map
      */
     onAdd: function (map) {
-
-        this._zoomAnimated = false;
-
         L.Marker.prototype.onAdd.apply(this, arguments);
 
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
@@ -25,6 +26,11 @@ L.MarkerEx = L.Marker.extend({
         }
 
         this.classes._addClasses();
+    },
+
+    getEvents: function() {
+        this._zoomAnimated = false;
+        return L.Marker.prototype.getEvents.apply(this, arguments);
     },
 
     /**
@@ -69,6 +75,9 @@ L.MarkerEx = L.Marker.extend({
     revokeImmunity: function() {
         this._immunityLevel = this.IMMUNITY.NONE;
         return this;
+    },
+    generalizationImmunity: function() {
+        this._generalizationImmune = true;
     }
 });
 

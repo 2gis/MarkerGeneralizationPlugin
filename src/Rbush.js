@@ -4,7 +4,7 @@
  https://github.com/mourner/rbush
  */
 
-(function () { 'use strict';
+L.RbushSrc = function () { 'use strict';
 
     function rbush(maxEntries, format) {
 
@@ -607,6 +607,8 @@
         arr[j] = tmp;
     }
 
-    window.L.Util.rbush = rbush;
+    return rbush;
 
-})();
+};
+
+window.L.Util.rbush = L.RbushSrc();

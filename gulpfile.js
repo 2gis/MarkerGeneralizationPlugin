@@ -4,10 +4,15 @@ var concat = require('gulp-concat');
 
 gulp.task('default', function() {
     gulp.src([
-        'src/rbush.js',
+        'src/Rbush.js',
+        'src/UtilUnblockingFor.js',
         'src/MarkerClassList.js',
+        'src/ClassCalculation.js',
+        'src/WebWorkerHelper.js',
         'src/ExtendedMarker.js',
-        'src/Generalize.js'
+        'src/GeneralizeDefaultSettings.js',
+        'src/Generalize.js',
+        'src/StreamingGeneralize.js'
     ])
         .pipe(concat('generalize.src.js'))
         .pipe(gulp.dest('dist/'))

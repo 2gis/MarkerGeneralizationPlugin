@@ -4,7 +4,7 @@
  https://github.com/mourner/rbush
  */
 
-(function () { 'use strict';
+L.RbushSrc = function () { 'use strict';
 
     function rbush(maxEntries, format) {
 
@@ -607,9 +607,33 @@
         arr[j] = tmp;
     }
 
-    window.L.Util.rbush = rbush;
+    return rbush;
 
-})();
+};
+
+window.L.Util.rbush = L.RbushSrc();
+L.Util.UnblockingFor = function(iterator, times, callback) {
+    callback = callback || function() {};
+
+    var index = 0;
+    next(index);
+
+    function next(i) {
+        setTimeout(function() {
+            iterator(i, cb);
+        }, 0);
+    }
+
+    function cb() {
+        index++;
+        if (index < times) {
+            next(index);
+        } else {
+            callback();
+        }
+    }
+
+};
 
 /**
  * Icon internal classes mechanism
@@ -672,6 +696,275 @@ L.markerClassList = function (marker) {
 };
 
 
+L.MarkerClassCalculation = {
+    webWorkerMain: function () {
+        try {
+            var i;
+            var items;
+            var rTrees = {};
+            var rbush; // rbush implementation passthrough
+
+            function processAllMarkers(levelIndex, workerData) {
+                var i;
+                var items;
+                var pendingMarkers = [];
+                var zoomClasses = {};
+                var totalMarkesCount = workerData.seekMarkers.length;
+                workerData.currentLevel = workerData.levels[levelIndex];
+
+                if (workerData.currentLevel.size[0] == 0 && workerData.currentLevel.size[1] == 0) {
+                    send({
+                        type: 'markersProcessingFinished',
+                        markers: [],
+                        zoom: workerData.currentZoom
+                    });
+                    return;
+                }
+
+                for (i = 0; i < totalMarkesCount; i++) {
+                    var currentMarker = workerData.seekMarkers[i];
+
+                    if (options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
+                        var node = makeNode(currentMarker, workerData.currentLevel, workerData.currentZoom);
+                        items = rTrees[workerData.currentZoom].search(node);
+
+                        if (options.validateGroup(node, items, options)) {
+                            rTrees[workerData.currentZoom].insert(node);
+                            var markerId = options.getMarkerId(currentMarker);
+                            zoomClasses[markerId] = zoomClasses[markerId] || {};
+                            zoomClasses[markerId][workerData.currentZoom] = zoomClasses[markerId][workerData.currentZoom] || workerData.currentLevel.className;
+                        } else {
+                            pendingMarkers.push(currentMarker);
+                        }
+                    } else {
+                        pendingMarkers.push(currentMarker);
+                    }
+                }
+
+                workerData.seekMarkers = pendingMarkers.slice();
+                send({
+                    type: 'markersChunkReady',
+                    zoomClasses: zoomClasses,
+                    priorityLevel: levelIndex,
+                    zoom: workerData.currentZoom
+                });
+            }
+
+            function makeNode(marker, level, currentZoom) {
+                var safeZone = level.safeZone || 0;
+                var margin = level.margin || 0;
+                // For the worst scenario
+                var sizeAddition = Math.max(safeZone, margin);
+
+                var x = marker._positions[currentZoom].x - level.offset[0] - sizeAddition;
+                var y = marker._positions[currentZoom].y - level.offset[1] - sizeAddition;
+                var width = level.size[0] + sizeAddition * 2;
+                var height = level.size[1] + sizeAddition * 2;
+
+                var node = [x, y, x + width, y + height];
+
+                node.levelIndex = level.index;
+                node.marker = marker;
+                node.safeZone = safeZone;
+                node.margin = margin;
+                node.markerX = marker._positions[currentZoom].x + level.markerOffset[0];
+                node.markerY = marker._positions[currentZoom].y + level.markerOffset[1];
+                node.markerHeight = level.size[1];
+                node.markerWidth = level.size[0];
+
+                return node;
+            }
+
+            registerMsgHandler('calc', function (opts) {
+                if (!rbush) {
+                    // should instantiate on first call
+                    // will fail in global scope: rbush script is not imported on that moment
+                    rbush = options.rbush();
+                }
+
+                var i;
+                send({
+                    type: 'markersProcessingStarted'
+                });
+
+                // shared
+                if (!rTrees[opts.currentZoom]) {
+                    rTrees[opts.currentZoom] = rbush();
+                }
+
+                var workerData = {
+                    seekMarkers: [],
+                    currentZoom: opts.currentZoom,
+                    markers: opts.markers,
+                    levels: opts.levels, // priority levels, not zooms
+                    currentLevel: opts.levels[0]
+                };
+
+                for (i = 0; i < workerData.markers.length; i++) {
+                    if (workerData.markers[i].showAlways) {
+                        rTrees[opts.currentZoom].insert(makeNode(workerData.markers[i], workerData.currentLevel, workerData.currentZoom));
+                    }
+
+                    if (workerData.markers[i]._generalizationImmune) {
+                        continue;
+                    }
+
+                    if (!workerData.markers[i].showAlways) {
+                        workerData.seekMarkers.push(workerData.markers[i]);
+                    }
+                }
+
+                for (i = 0; i < workerData.levels.length; i++) {
+                    processAllMarkers(i, workerData);
+                }
+
+                send({
+                    type: 'markersProcessingFinished',
+                    zoom: workerData.currentZoom
+                });
+            });
+        } catch (e) {
+            self.console.error(e);
+        }
+    },
+
+    createCalculationWorker: function(options) {
+        options.rbush = L.RbushSrc; // required for proper work
+        return L.WebWorkerHelper.createWorker(this.webWorkerMain, options);
+    }
+}
+
+
+
+L.WebWorkerHelper = {
+    workerInit: function() {
+        msgHandlers = {};
+        options = {};
+        registerMsgHandler = function(handlerName, handler) {
+            if (!msgHandlers[handlerName]) {
+                msgHandlers[handlerName] = handler;
+            }
+        };
+
+        dropMsgHandler = function(handlerName) {
+            delete msgHandlers[handlerName];
+        };
+
+        send = function(message) {
+            postMessage(JSON.stringify(message));
+        };
+
+        self.onmessage = function(event) {
+            switch (event.data.type) {
+                case 'init':
+                    for (var i in event.data.options) {
+                        var elem = event.data.options[i];
+                        if (elem && elem.substr && elem.substr(0, 4) == 'blob') {
+                            importScripts(elem);
+                        } else {
+                            options[i] = elem;
+                        }
+                    }
+                    break;
+                default:
+                    var opts = JSON.parse(event.data.buf);
+                    opts.type = event.data.type;
+                    if (msgHandlers[event.data.type]) {
+                        msgHandlers[event.data.type](opts);
+                    }
+            }
+        }
+    },
+
+    getMainFunc: function(func) {
+        return URL.createObjectURL(new Blob([
+            '(', this.workerInit.toString(), ')();',
+            '(', func.toString(), ')();'
+        ], {
+            type: 'application/javascript'
+        }));
+    },
+
+    getFunctionalParameter: function(func, paramName) {
+        return URL.createObjectURL(new Blob([
+            'options["' + paramName, '"] = ', func.toString()
+        ], {
+            type: 'application/javascript'
+        }));
+    },
+
+    createWorker: function(mainFunc, options) {
+        var worker = new Worker(this.getMainFunc(mainFunc));
+        for (var i in options) {
+            if (typeof options[i] == 'function') {
+                options[i] = this.getFunctionalParameter(options[i], i);
+            }
+        }
+
+        worker.postMessage({
+            type: 'init',
+            options: options
+        });
+
+        worker._messageListeners = {};
+        worker.onmessage = function(e) {
+            var data = JSON.parse(e.data);
+
+            if (worker._messageListeners[data.type]) {
+                worker._messageListeners[data.type](data);
+            }
+
+            if (worker._semaphoresDelta[data.type]) {
+                worker._nowProcessing += worker._semaphoresDelta[data.type];
+                requestAnimationFrame(worker._processQueue);
+            }
+        };
+
+        worker._queue = [];
+        worker._packetChunkSize = 2;
+        worker._nowProcessing = 0;
+        worker._semaphoresDelta = {};
+
+        worker.registerExpectedReturns = function(messageName, replyMessageName) {
+            worker._semaphoresDelta[messageName] = 1;
+            worker._semaphoresDelta[replyMessageName] = -1;
+        };
+
+        worker.registerMsgHandler = function(eventType, handler) {
+            if (!worker._messageListeners[eventType]) {
+                worker._messageListeners[eventType] = handler;
+            }
+        };
+
+        worker.dropMsgHandler = function(eventType) {
+            delete worker._messageListeners[eventType];
+        };
+
+        worker.send = function(msgName, content) {
+            worker._queue.push({name: msgName, content: content});
+            requestAnimationFrame(worker._processQueue);
+        };
+
+        worker._processQueue = function() {
+            if (worker._nowProcessing > worker._packetChunkSize) return;
+
+            var job = worker._queue.shift();
+            if (!job) return;
+
+            if (worker._semaphoresDelta[job.name]) {
+                worker._nowProcessing += worker._semaphoresDelta[job.name];
+            }
+            var arrbuf = JSON.stringify(job.content);
+            worker.postMessage({
+                type: job.name,
+                buf: arrbuf
+            });
+        };
+
+        return worker;
+    }
+};
+
 /**
  * Extended marker:
  * - has options to prevent deletion or hide during generalization
@@ -683,15 +976,16 @@ L.MarkerEx = L.Marker.extend({
      */
     _extended: true,
 
+    /**
+     * Do not consider this marker in generalization
+     */
+    _generalizationImmune: false,
 
     /**
      * Augment parent method to apply class names when icon is added on map
      * @param map
      */
     onAdd: function (map) {
-
-        this._zoomAnimated = false;
-
         L.Marker.prototype.onAdd.apply(this, arguments);
 
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
@@ -699,6 +993,11 @@ L.MarkerEx = L.Marker.extend({
         }
 
         this.classes._addClasses();
+    },
+
+    getEvents: function() {
+        this._zoomAnimated = false;
+        return L.Marker.prototype.getEvents.apply(this, arguments);
     },
 
     /**
@@ -743,6 +1042,9 @@ L.MarkerEx = L.Marker.extend({
     revokeImmunity: function() {
         this._immunityLevel = this.IMMUNITY.NONE;
         return this;
+    },
+    generalizationImmunity: function() {
+        this._generalizationImmune = true;
     }
 });
 
@@ -751,70 +1053,154 @@ L.markerEx = function (latlng, options) {
 };
 
 
-L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
-    options: {
-        levels: [
-            {
-                margin: 30,
-                safeZone: 20,
-                size: [25, 40],
-                offset: [12.5, 40],
-                className: '_pin'
-            },
-            {
-                safeZone: 5,
-                size: [6, 6],
-                className: '_bullet'
-            },
-            {
-                safeZone: 0,
-                className: '_hidden'
-            }
-        ],
-        // In parts of viewport size.
-        // 1 means there will be 1 screen in all directions of unhidden markers around the viewport.
-        // 0.5 means there will be a half of the screen in all directions of unhidden markers around the viewport.
-        viewportHideOffset: 1,
-        checkMarkersIntersection: function(currentMarker, checkingMarker) {
-            var distance = Math.max(currentMarker.safeZone, checkingMarker.margin);
-            return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2)
-                || Math.abs(currentMarker.markerY - checkingMarker.markerY) > (distance + currentMarker.markerHeight / 2 + checkingMarker.markerHeight / 2);
+L.MarkerGeneralizeGroupDefaults = {
+    chunkSize: 20,
+    levels: [
+        {
+            margin: 30,
+            safeZone: 20,
+            size: [25, 40],
+            offset: [12.5, 40],
+            className: '_pin'
         },
-        checkMarkerMinimumLevel: function() {
-            return 0;
+        {
+            safeZone: 5,
+            size: [6, 6],
+            className: '_bullet'
         },
-
-        // by default Layer has overlayPane, but we work with markers
-        pane: 'markerPane'
+        {
+            safeZone: 0,
+            className: '_hidden'
+        }
+    ],
+    // In parts of viewport size.
+    // 1 means there will be 1 screen in all directions of unhidden markers around the viewport.
+    // 0.5 means there will be a half of the screen in all directions of unhidden markers around the viewport.
+    viewportHideOffset: 1,
+    checkMarkersIntersection: function(currentMarker, checkingMarker) {
+        var distance = Math.max(currentMarker.safeZone, checkingMarker.margin);
+        return Math.abs(currentMarker.markerX - checkingMarker.markerX) > (distance + currentMarker.markerWidth / 2 + checkingMarker.markerWidth / 2) ||
+            Math.abs(currentMarker.markerY - checkingMarker.markerY) > (distance + currentMarker.markerHeight / 2 + checkingMarker.markerHeight / 2);
     },
+    checkMarkerMinimumLevel: function() {
+        return 0;
+    },
+
+    // by default Layer has overlayPane, but we work with markers
+    pane: 'markerPane',
+    getMarkerFields: function() {
+        return [];
+    },
+    getMarkerId: function(marker) {
+        return marker.id;
+    }
+};
+
+L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
+    options: L.MarkerGeneralizeGroupDefaults,
     initialize: function(options) {
         L.Util.setOptions(this, options);
 
+        this._layersCount = 0;
         this._layers = {};
+        this._layersById = {};
+        this._zoomReady = {};
 
         this._priorityMarkers = [];
         this._otherMarkers = [];
 
-        this._calculationBusy = false;
-        this._calculationQueued = false;
-
-        this._zoomReady = {};
-
-        this.setMaxZoom(options.maxZoom);
-        this.setMinZoom(options.minZoom);
+        this._setMaxZoom(options.maxZoom);
+        this._setMinZoom(options.minZoom);
 
         this.on('invalidationFinish', function() {
             this.getPane().style.display = 'block';
         });
     },
 
-    setMaxZoom: function(maxZoom) {
+    addLayers: function(layersArray) {
+        for (var i = 0; i < layersArray.length; i++) {
+            this._addLayer(layersArray[i]);
+            this._prepareMarker(layersArray[i]);
+        }
+
+        if (this._map) {
+            this._calculateMarkersClassForEachZoom(layersArray);
+        }
+    },
+
+    addLayer: function(layer) {
+        this._addLayer(layer);
+        if (this._map) {
+            this._prepareMarker(layer);
+            var that = this;
+            this._calculateMarkersClassForEachZoom([layer], function() {
+                that._invalidateMarkers();
+            });
+        }
+        return this;
+    },
+
+    removeLayer: function(layer) {
+        if (this._removeLayer(layer)) {
+            this._calculateMarkersClassForEachZoom();
+            this._invalidateMarkers();
+        }
+
+        return this;
+    },
+
+    onAdd: function(map) {
+        this._map = map;
+
+        if (this.getLayers().length) {
+            this.eachLayer(this._prepareMarker, this);
+            // wait user map manipulation to know correct init zoom
+            requestAnimationFrame(this._calculateMarkersClassForEachZoom.bind(this));
+        }
+    },
+
+    onRemove: function(map) {
+        if (!this._map) return;
+
+        L.LayerGroup.prototype.onRemove.call(this, map);
+
+        this.eachLayer(function(marker) {
+            marker.options.state = 'HIDDEN';
+        });
+
+        this._map = null;
+    },
+
+    clearLayers: function () {
+        var i;
+        for (i in this._layers) {
+            this._removeLayer(this._layers[i]);
+        }
+
+        this._priorityMarkers = [];
+        this._otherMarkers = [];
+        return this;
+    },
+
+    getEvents: function() {
+        var events = {
+            zoomstart: this._zoomStart,
+            zoomend: this._zoomEnd,
+            moveend: this._invalidateMarkers
+        };
+
+        return events;
+    },
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    _setMaxZoom: function(maxZoom) {
         if (!isNaN(maxZoom) && maxZoom <= 19) {
             this._maxZoom = maxZoom;
         }
     },
 
-    setMinZoom: function(minZoom) {
+    _setMinZoom: function(minZoom) {
         if (!isNaN(minZoom) && minZoom >= 0) {
             if (minZoom > this._getMaxZoom()) {
                 throw new Error('Min zoom must be smaller than max zoom');
@@ -875,68 +1261,43 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         return levels;
     },
 
-    _addLayer: function(layer) {
-        layer._positions = {};
-
-        if (layer.showAlways) {
-            this._priorityMarkers.push(layer);
-        } else {
-            this._otherMarkers.push(layer);
-        }
-
-        var oldMap = this._map;
-
-        // Don't allow markers to be added to map: we'll do it during invalidation.
-        if (oldMap) {
-            this._map = null;
-        }
-        L.LayerGroup.prototype.addLayer.call(this, layer);
-        if (oldMap) {
-            this._map = oldMap;
-        }
-    },
-
     _prepareMarker: function(layer) {
+        if (layer._prepared) {
+            return;
+        }
+
         var zoom = this._getMaxZoom();
         var minZoom = this._getMinZoom();
         for (; zoom >= minZoom; zoom--) {
             this._setMarkerPosition(layer, zoom);
         }
+        layer._prepared = true;
     },
 
     _setMarkerPosition: function(layer, zoom) {
         layer._positions[zoom] = this._map.project(layer.getLatLng(), zoom); // calculate pixel position
         layer.options.classForZoom = layer.options.classForZoom || [];
-        layer.options.classForZoom[zoom] = 'HIDDEN';
+        layer.options.classForZoom[zoom] = layer.options.classForZoom[zoom] || 'HIDDEN';
     },
 
-    _calculateMarkersClassForEachZoom: function() {
+    _calculateMarkersClassForEachZoom: function(layersChunk) {
         var that = this;
-
-        if (this._calculationBusy) {
-            this._calculationQueued = true;
-            return;
-        }
-        this._calculationBusy = true;
-        this._zoomReady = {};
 
         var currentZoom = this._map.getZoom();
         var maxZoom = this._getMaxZoom();
         var zoomsToCalculate = [];
         for (var z = this._getMinZoom(); z <= maxZoom; z++) {
-            if (z != currentZoom) {
-                zoomsToCalculate.push(z);
-            }
+            zoomsToCalculate.push(z);
         }
         zoomsToCalculate.sort(function(a, b) {
             return Math.abs(currentZoom - a) - Math.abs(currentZoom - b);
         });
 
-        this._calculateMarkersClassForZoom(currentZoom, function() {
+        this._calculateMarkersClassForZoom(layersChunk, currentZoom, function() {
             // current zoom is ready
             L.Util.UnblockingFor(function(zoomIndex, cb) {
                 var z = zoomsToCalculate[zoomIndex];
-                that._calculateMarkersClassForZoom(z, cb);
+                that._calculateMarkersClassForZoom(layersChunk, z, cb);
             }, zoomsToCalculate.length, function() {
                 that._calculationBusy = false;
                 that.fireEvent('calculationFinish');
@@ -954,7 +1315,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      * @param callback {Function} - calls when calculation finished
      * @private
      */
-    _calculateMarkersClassForZoom: function(zoom, callback) {
+    _calculateMarkersClassForZoom: function(layersChunk, zoom, callback) {
         var i, currentLevel, currentMarker,
             tmpMarkers = {},
             levels = this._getLevels(zoom),
@@ -1001,7 +1362,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                     var node = makeNode(currentMarker, currentLevel);
                     items = tree.search(node);
 
-                    if (that._validateGroup(node, items)) {
+                    if (that._validateGroup(node, items, that.options)) {
                         tree.insert(node);
                         currentMarker.options.classForZoom[zoom] = currentLevel.className;
                         tmpMarkers[levelIndex].push(currentMarker);
@@ -1095,9 +1456,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      * @returns {boolean}
      * @private
      */
-    _validateGroup: function(currMarker, items) {
+    _validateGroup: function(currMarker, items, ops) {
         if (items.length == 0) return true;
-        var i, ops = this.options;
+        var i;
 
         for (i = 0; i < items.length; i++) {
             if (!ops.checkMarkersIntersection(currMarker, items[i])) {
@@ -1167,115 +1528,263 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this.fireEvent('invalidationFinish');
     },
 
+    _applyClasses: function(marker, zoomClasses, zoom) {
+        if (!marker) return;
+        var markerId = this.options.getMarkerId(marker);
+        if (zoomClasses[markerId] && zoomClasses[markerId][zoom] && marker.options.classForZoom[zoom]) {
+            marker.options.classForZoom[zoom] = zoomClasses[markerId][zoom];
+        }
+    },
+
+    _invalidateSingleMarker: function(marker, pixelBounds, zoom) {
+        if (!marker) return;
+
+        var groupClass = marker.options.classForZoom[zoom];
+        var markerPos = marker._positions[zoom];
+        var markerState = marker.options.state;
+        var preRemove = marker.onBeforeRemove || function() {
+            return true;
+        };
+
+        marker.options.state = groupClass;
+
+        if (marker._immunityLevel) {
+            if (!marker._map) {
+                this._map.addLayer(marker);
+            }
+
+            if (markerState != groupClass && groupClass != 'HIDDEN') {
+                L.DomUtil.addClass(marker._icon, groupClass);
+            }
+
+            return;
+        }
+
+        if (!pixelBounds.contains(markerPos)) { // not in viewport -> hide & remove
+            groupClass = 'HIDDEN';
+            if (preRemove.apply(marker)) {
+                this._map.removeLayer(marker);
+            }
+        }
+
+        if (markerState != groupClass && groupClass != 'HIDDEN') {
+            if (!marker._map) {
+                this._map.addLayer(marker);
+            }
+
+            if (groupClass) {
+                if (markerState && markerState != 'HIDDEN') {
+                    L.DomUtil.removeClass(marker._icon, markerState);
+                }
+                L.DomUtil.addClass(marker._icon, groupClass);
+            }
+        }
+    },
+
     _zoomStart: function() {
         this.getPane().style.display = 'none';
     },
 
-    addLayer: function(layer) {
-        this._addLayer(layer);
-        if (this._map && !layer._immunityLevel) {
-            this._prepareMarker(layer);
-            this._calculateMarkersClassForEachZoom();
-            this._invalidateMarkers();
-        }
-        return this;
+    _zoomEnd: function() {
+        this.getPane().style.display = 'block';
     },
 
-    addLayers: function(layersArray) {
-        var i;
-        for (i = 0; i < layersArray.length; i++) {
-            this._addLayer(layersArray[i]);
+
+    _addLayer: function(layer) {
+        layer._positions = {};
+
+        if (layer.showAlways) {
+            this._priorityMarkers.push(layer);
+        } else {
+            this._otherMarkers.push(layer);
         }
 
-        if (this._map) {
-            this.eachLayer(this._prepareMarker, this);
-            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+        var oldMap = this._map;
+
+        // Don't allow markers to be added to map: we'll do it during invalidation.
+        if (oldMap) {
+            this._map = null;
         }
-        return this;
+        this._layersCount++;
+        this._layersById[this.options.getMarkerId(layer)] = layer;
+        L.LayerGroup.prototype.addLayer.call(this, layer);
+        if (oldMap) {
+            this._map = oldMap;
+        }
     },
 
     _removeLayer: function(layer) {
         var beforeLength = this._layers.length;
+        this._layersCount--;
+        delete this._layersById[this.options.getMarkerId(layer)];
         L.LayerGroup.prototype.removeLayer.call(this, layer);
         return beforeLength - this._layers.length != 0;
-    },
-
-    removeLayer: function(layer) {
-        if (this._removeLayer(layer)) {
-            this._calculateMarkersClassForEachZoom();
-            this._invalidateMarkers();
-        }
-
-        return this;
-    },
-
-    getEvents: function() {
-        var events = {
-            zoomstart: this._zoomStart,
-            moveend: this._invalidateMarkers
-        };
-
-        return events;
-    },
-
-    onAdd: function(map) {
-        this._map = map;
-
-        if (this.getLayers().length) {
-            this.eachLayer(this._prepareMarker, this);
-            // wait user map manipulation to know correct init zoom
-            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
-        }
-    },
-
-    onRemove: function(map) {
-        if (!this._map) return;
-
-        L.LayerGroup.prototype.onRemove.call(this, map);
-
-        this.eachLayer(function(marker) {
-            marker.options.state = 'HIDDEN';
-        });
-
-        this._map = null;
-    },
-
-    clearLayers: function () {
-        var i;
-        for (i in this._layers) {
-            this._removeLayer(this._layers[i]);
-        }
-
-        this._priorityMarkers = [];
-        this._otherMarkers = [];
-        return this;
     }
-
 });
 
-L.markerGeneralizeGroup = function (option) {
-    return new L.MarkerGeneralizeGroup(option);
-};
 
-L.Util.UnblockingFor = function(iterator, times, callback) {
-    callback = callback || function() {};
+L.MarkerStreamingGeneralizeGroup = L.MarkerGeneralizeGroup.extend({
+    initialize: function(options) {
+        L.MarkerGeneralizeGroup.prototype.initialize.call(this, options);
 
-    var index = 0;
-    next(index);
+        this._workerOptions = {
+            checkMarkersIntersection: options.checkMarkersIntersection,
+            checkMarkerMinimumLevel: options.checkMarkerMinimumLevel,
+            getMarkerFields: options.getMarkerFields,
+            getMarkerId: options.getMarkerId,
+            validateGroup: this._validateGroup
+        };
 
-    function next(i) {
-        setTimeout(function() {
-            iterator(i, cb);
-        }, 0);
-    }
+        this._worker = L.MarkerClassCalculation.createCalculationWorker(this._workerOptions);
+    },
 
-    function cb() {
-        index++;
-        if (index < times) {
-            next(index);
-        } else {
-            callback();
+    addLayers: function(layersArray) {
+        var that = this;
+        //if (this._layersCount > 0) {
+        //    // split to chunks, except first time
+        //    for (var i = 0; i < layersArray.length; i+= this.options.chunkSize) {
+        //        L.MarkerGeneralizeGroup.prototype.addLayers.call(this, layersArray.slice(i, i + that.options.chunkSize));
+        //    }
+        //} else {
+            L.MarkerGeneralizeGroup.prototype.addLayers.call(this, layersArray);
+        //}
+        return this;
+    },
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    _calculateMarkersClassForEachZoom: function(layersChunk, onFinish) {
+        var that = this;
+
+        var currentZoom = this._map.getZoom();
+        var maxZoom = this._getMaxZoom();
+        var zoomsToCalculate = [];
+        for (var z = this._getMinZoom(); z <= maxZoom; z++) {
+            zoomsToCalculate.push(z);
         }
-    }
+        zoomsToCalculate.sort(function(a, b) {
+            return Math.abs(currentZoom - a) - Math.abs(currentZoom - b);
+        });
 
-};
+        var sem = 0;
+        for (var k = 0; k < zoomsToCalculate.length; k++) {
+            sem++;
+            that._calculateMarkersClassForZoom(layersChunk, zoomsToCalculate[k], function(zm) {
+                sem--;
+                if (sem === 0) {
+                    if (onFinish) onFinish();
+                    that.fireEvent('calculationFinish');
+                }
+            });
+        }
+    },
+
+    /**
+     * Start calculation marker styles on passed zoom
+     * @param zoom {Number}  - for which zoom calculate styles
+     * @param callback {Function} - calls when calculation finished
+     * @private
+     */
+    _calculateMarkersClassForZoom: function(layersChunk, zoom, callback) {
+        var i, currentLevel, currentMarker,
+            levels = this._getLevels(zoom),
+            that = this;
+
+        var incomingEventName = 'markersChunkReady';
+        var outgoingEventName = 'calc';
+
+        var message = {
+            levels: levels,
+            markers: this._flattenMarkers(layersChunk),
+            currentZoom: zoom
+        };
+
+        /*
+            TODO:
+            - Разобраться, кто замораживает основной поток в первые секунды. Возможно это какие-то форматтеры. Может запрос на маркеры тоже в воркер унести? - TODO ПОПРОБОВАТЬ!
+            - Посмотреть где еще можно разблочить евент-луп, а где наоборот это излишне.
+         */
+
+        this._worker.registerExpectedReturns(outgoingEventName, incomingEventName);
+
+        this._worker.registerMsgHandler(incomingEventName, function(event) {
+            if (that._map.getZoom() == event.zoom) {
+                that._invalidateMarkers(null, event.zoomClasses);
+            } else {
+                for (var i in event.zoomClasses) {
+                    that._applyClasses(that._layersById[i], event.zoomClasses, event.zoom);
+                }
+            }
+        });
+
+        this._worker.registerMsgHandler('markersProcessingFinished', function(event) {
+            if (event.zoom == that._map.getZoom()) {
+                that.fireEvent('markersProcessingFinish');
+            }
+            callback(event.zoom);
+        });
+
+        requestAnimationFrame(function() {
+            that._worker.send(outgoingEventName, message);
+        });
+    },
+
+    _flattenMarkers: function(markers) {
+        if (!markers) {
+            return [];
+        }
+
+        this._tt = this._tt || 0;
+        var tt = new Date().getTime();
+        for (var i in markers) {
+            this._prepareMarker(markers[i]);
+        }
+
+        var fields = ['_positions', 'showAlways'].concat(this.options.getMarkerFields());
+        var result = [];
+
+        for (var j = 0; j < markers.length; j++) {
+            result[j] = {};
+            for (var k = 0; k < fields.length; k++) {
+                result[j][fields[k]] = markers[j][fields[k]];
+            }
+        }
+
+        this._tt += (new Date().getTime() - tt);
+
+        return result;
+    },
+
+    /**
+     * set marker classes on current zoom
+     * @param event             for moveend event
+     * @param zoomLevelsList   for partial invalidation
+     * @private
+     */
+    _invalidateMarkers: function(event, zoomLevelsList) {
+        var zoom = this._map.getZoom();
+
+        var pixelBounds = this._map.getPixelBounds();
+        var width = (pixelBounds.max.x - pixelBounds.min.x) * this.options.viewportHideOffset;
+        var height = (pixelBounds.max.y - pixelBounds.min.y) * this.options.viewportHideOffset;
+
+        pixelBounds.min._subtract({x: width, y: height});
+        pixelBounds.max._add({x: width, y: height});
+
+        if (!zoomLevelsList) {
+            this.eachLayer(function(marker) {
+                this._invalidateSingleMarker(marker, pixelBounds, zoom);
+            }, this);
+        } else {
+            for (var i in zoomLevelsList) {
+                this._applyClasses(this._layersById[i], zoomLevelsList, zoom);
+                this._invalidateSingleMarker(this._layersById[i], pixelBounds, zoom);
+            }
+        }
+
+        console.log('Inv finished');
+        this.fireEvent('invalidationFinish');
+    }
+});
+
