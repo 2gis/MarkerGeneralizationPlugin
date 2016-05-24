@@ -443,6 +443,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     _removeLayer: function(layer) {
         var beforeLength = this._layers.length;
+        var index;
+        if ((index = this._priorityMarkers.indexOf(layer)) != -1) {
+            this._priorityMarkers.splice(index, 1);
+        } else if ((index = this._otherMarkers.indexOf(layer)) != -1) {
+            this._otherMarkers.splice(index, 1);
+        }
         L.LayerGroup.prototype.removeLayer.call(this, layer);
         return beforeLength - this._layers.length != 0;
     },
