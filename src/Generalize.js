@@ -203,26 +203,21 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
      */
     _calculateMarkersClassForZoom: function(zoom, callback) {
         var i, currentLevel, currentMarker,
-            tmpMarkers = {},
             levels = this._getLevels(zoom),
             that = this;
 
-        for (i = 0; i < levels.length; i++) {
-            tmpMarkers[i] = [];
-        }
-
         var tree = L.Util.rbush();
 
-        currentLevel = levels[0];
+        var nodes = [];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
             currentMarker = this._prepareMarker(this._priorityMarkers[i]);
-            tmpMarkers[currentLevel].push(currentMarker);
-            tree.insert(makeNode(currentMarker, currentLevel));
+            currentLevel = getMarkerLevel(currentMarker, 0);
+            nodes.push(makeNode(currentMarker, currentLevel));
         }
+        tree.load(nodes);
 
-        var items,
-            seekMarkers = [];
+        var seekMarkers = [];
 
         for (i = 0; i < this._otherMarkers.length; i++) {
             currentMarker = this._otherMarkers[i];
@@ -234,7 +229,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         function processAllMarkers(levelIndex, levelsCallback) {
             var pendingMarkers = [];
             var totalMarkersCount = seekMarkers.length;
-            currentLevel = levels[levelIndex];
 
             if (levels[levelIndex].size[0] == 0 && levels[levelIndex].size[1] == 0) {
                 levelsCallback();
@@ -243,15 +237,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
             for (var i = 0; i < totalMarkersCount; i++) {
                 var currentMarker = seekMarkers[i];
+                currentLevel = getMarkerLevel(currentMarker, levelIndex);
 
                 if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
                     var node = makeNode(currentMarker, currentLevel);
-                    items = tree.search(node);
 
-                    if (that._validateGroup(node, items)) {
+                    if (!tree.collides(node)) {
                         tree.insert(node);
                         currentMarker.options.classForZoom[zoom] = currentLevel.className;
-                        tmpMarkers[levelIndex].push(currentMarker);
                     } else {
                         pendingMarkers.push(currentMarker);
                     }
@@ -262,6 +255,19 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
             seekMarkers = pendingMarkers.slice();
             levelsCallback();
+        }
+
+        function getMarkerLevel(marker, index) {
+            var markerType = marker.options.type;
+            if (!markerType) {
+                return levels[index];
+            }
+            for (var i = index; i <= levels.length; i++) {
+                var levelType = levels[i].type;
+                if (!levelType || levelType == markerType) {
+                    return levels[i];
+                }
+            }
         }
 
         function zoomReady() {
@@ -286,7 +292,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var width = level.size[0] + sizeAddition * 2;
             var height =  level.size[1] + sizeAddition * 2;
 
-            var node = [x, y, x + width, y + height];
+            var node = {
+                minX: x,
+                minY: y,
+                maxX: x + width,
+                maxY: y + height
+            };
 
             node.levelIndex = level.index;
             node.marker = marker;
@@ -333,25 +344,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             width: maxX - minX,
             height: maxY - minY
         };
-    },
-
-    /**
-     * Check if marker intersect found markers from tree
-     * @param currMarker
-     * @param items
-     * @returns {boolean}
-     * @private
-     */
-    _validateGroup: function(currMarker, items) {
-        if (items.length == 0) return true;
-        var i, ops = this.options;
-
-        for (i = 0; i < items.length; i++) {
-            if (!ops.checkMarkersIntersection(currMarker, items[i])) {
-                return false;
-            }
-        }
-        return true;
     },
 
     /**
