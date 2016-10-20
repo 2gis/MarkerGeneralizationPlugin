@@ -124,6 +124,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     _addLayer: function(layer) {
         layer._positions = {};
+        layer.addEventParent(this);
 
         if (layer.showAlways) {
             this._priorityMarkers.push(layer);
