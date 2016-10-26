@@ -970,11 +970,16 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
 
         var items,
-            seekMarkers = [];
+            seekMarkers = [],
+            range;
 
         for (i = 0; i < this._otherMarkers.length; i++) {
             currentMarker = this._otherMarkers[i];
-            seekMarkers.push(currentMarker);
+            range = currentMarker.data && currentMarker.data.zoomLevelsRange;
+            // if data.zoomLevelsRange exists, generalize only appropriate markers
+            if (!range || zoom >= range[0] && zoom <= range[1]) {
+                seekMarkers.push(currentMarker);
+            }
         }
 
         L.Util.UnblockingFor(processAllMarkers, levels.length, zoomReady);
