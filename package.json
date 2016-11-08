@@ -3,6 +3,9 @@
   "version": "0.0.18",
   "description": "Plugin for marker generalisation in 2gis maps and leaflet",
   "main": "dist/generalize.min.js",
+  "scripts": {
+    "build": "gulp"
+  },
   "repository" : {
     "type" : "git",
     "url" : "https://github.com/2gis/MarkerGeneralizationPlugin.git"

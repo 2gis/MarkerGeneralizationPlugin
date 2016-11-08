@@ -207,15 +207,16 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             that = this;
 
         var tree = L.Util.rbush();
+        var nodes = [];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
             currentMarker = this._prepareMarker(this._priorityMarkers[i]);
             currentLevel = getMarkerLevel(currentMarker, 0);
-            tree.insert(makeNode(currentMarker, currentLevel));
+            nodes.push(makeNode(currentMarker, currentLevel));
         }
+        tree.load(nodes);
 
-        var items,
-            seekMarkers = [],
+        var seekMarkers = [],
             range;
 
         for (i = 0; i < this._otherMarkers.length; i++) {
@@ -244,9 +245,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
                 if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
                     var node = makeNode(currentMarker, currentLevel);
-                    items = tree.search(node);
 
-                    if (that._validateGroup(node, items)) {
+                    if (!tree.collides(node)) {
                         tree.insert(node);
                         currentMarker.options.classForZoom[zoom] = currentLevel.className;
                     } else {
@@ -296,7 +296,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var width = level.size[0] + sizeAddition * 2;
             var height =  level.size[1] + sizeAddition * 2;
 
-            var node = [x, y, x + width, y + height];
+            var node = {
+                minX: x,
+                minY: y,
+                maxX: x + width,
+                maxY: y + height
+            };
 
             node.levelIndex = level.index;
             node.marker = marker;
@@ -343,25 +348,6 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             width: maxX - minX,
             height: maxY - minY
         };
-    },
-
-    /**
-     * Check if marker intersect found markers from tree
-     * @param currMarker
-     * @param items
-     * @returns {boolean}
-     * @private
-     */
-    _validateGroup: function(currMarker, items) {
-        if (items.length == 0) return true;
-        var i, ops = this.options;
-
-        for (i = 0; i < items.length; i++) {
-            if (!ops.checkMarkersIntersection(currMarker, items[i])) {
-                return false;
-            }
-        }
-        return true;
     },
 
     /**
