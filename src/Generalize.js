@@ -217,7 +217,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         }
         tree.load(nodes);
 
-        var seekMarkers = [],
+        var items,
+            seekMarkers = [],
             range;
 
         for (i = 0; i < this._otherMarkers.length; i++) {
@@ -247,7 +248,9 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
                 if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
                     var node = makeNode(currentMarker, currentLevel);
 
-                    if (!tree.collides(node)) {
+                    items = tree.search(node);
+
+                    if (that._validateGroup(node, items)) {
                         tree.insert(node);
                         currentMarker.options.classForZoom[zoom] = currentLevel.className;
                     } else {
@@ -349,6 +352,25 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             width: maxX - minX,
             height: maxY - minY
         };
+    },
+
+    /**
+     * Check if marker intersect found markers from tree
+     * @param currMarker
+     * @param items
+     * @returns {boolean}
+     * @private
+     */
+    _validateGroup: function(currMarker, items) {
+        if (items.length == 0) return true;
+        var i, ops = this.options;
+
+        for (i = 0; i < items.length; i++) {
+            if (!ops.checkMarkersIntersection(currMarker, items[i])) {
+                return false;
+            }
+        }
+        return true;
     },
 
     /**
