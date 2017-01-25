@@ -930,6 +930,8 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     _calculateMarkersClassForEachZoom: function() {
         var that = this;
 
+        if (!this._map) return;
+
         if (this._calculationBusy) {
             this._calculationQueued = true;
             return;
@@ -1050,7 +1052,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         function zoomReady() {
             that._zoomReady[zoom] = true;
             // if finish calculate styles for current level
-            if (that._map.getZoom() == zoom) that._invalidateMarkers();
+            if (that._map && that._map.getZoom() == zoom) that._invalidateMarkers();
             callback();
         }
 
