@@ -208,12 +208,14 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             that = this;
 
         var tree = L.Util.rbush();
+        var nodes = [];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
             currentMarker = this._prepareMarker(this._priorityMarkers[i]);
             currentLevel = getMarkerLevel(currentMarker, 0);
-            tree.insert(makeNode(currentMarker, currentLevel));
+            nodes.push(makeNode(currentMarker, currentLevel));
         }
+        tree.load(nodes);
 
         var items,
             seekMarkers = [],
@@ -245,6 +247,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
                 if (that.options.checkMarkerMinimumLevel(currentMarker) <= levelIndex) {
                     var node = makeNode(currentMarker, currentLevel);
+
                     items = tree.search(node);
 
                     if (that._validateGroup(node, items)) {
@@ -297,7 +300,12 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             var width = level.size[0] + sizeAddition * 2;
             var height =  level.size[1] + sizeAddition * 2;
 
-            var node = [x, y, x + width, y + height];
+            var node = {
+                minX: x,
+                minY: y,
+                maxX: x + width,
+                maxY: y + height
+            };
 
             node.levelIndex = level.index;
             node.marker = marker;
