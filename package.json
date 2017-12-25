@@ -6,9 +6,9 @@
   "scripts": {
     "build": "gulp"
   },
-  "repository" : {
-    "type" : "git",
-    "url" : "https://github.com/2gis/MarkerGeneralizationPlugin.git"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2gis/MarkerGeneralizationPlugin.git"
   },
   "license": "BSD-2-Clause",
   "devDependencies": {

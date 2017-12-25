@@ -158,53 +158,13 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         layer.options.classForZoom[zoom] = 'HIDDEN';
     },
 
-    _calculateMarkersClassForEachZoom: function() {
-        var that = this;
-
-        if (!this._map) return;
-
-        if (this._calculationBusy) {
-            this._calculationQueued = true;
-            return;
-        }
-        this._calculationBusy = true;
-        this._zoomReady = {};
-
-        var currentZoom = this._map.getZoom();
-        var maxZoom = this._getMaxZoom();
-        var zoomsToCalculate = [];
-        for (var z = this._getMinZoom(); z <= maxZoom; z++) {
-            if (z != currentZoom) {
-                zoomsToCalculate.push(z);
-            }
-        }
-        zoomsToCalculate.sort(function(a, b) {
-            return Math.abs(currentZoom - a) - Math.abs(currentZoom - b);
-        });
-
-        this._calculateMarkersClassForZoom(currentZoom, function() {
-            // current zoom is ready
-            L.Util.UnblockingFor(function(zoomIndex, cb) {
-                var z = zoomsToCalculate[zoomIndex];
-                that._calculateMarkersClassForZoom(z, cb);
-            }, zoomsToCalculate.length, function() {
-                that._calculationBusy = false;
-                that.fireEvent('calculationFinish');
-                if (that._calculationQueued) {
-                    that._calculationQueued = false;
-                    that._calculateMarkersClassForEachZoom();
-                }
-            });
-        });
-    },
-
     /**
-     * Start calculation marker styles on passed zoom
-     * @param zoom {Number}  - for which zoom calculate styles
-     * @param callback {Function} - calls when calculation finished
+     * Start calculation marker styles on current zoom
      * @private
      */
-    _calculateMarkersClassForZoom: function(zoom, callback) {
+    _calculateMarkersClass: function() {
+        var zoom = this._map.getZoom();
+
         var i, currentLevel, currentMarker,
             levels = this._getLevels(zoom),
             that = this;
@@ -283,8 +243,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         function zoomReady() {
             that._zoomReady[zoom] = true;
             // if finish calculate styles for current level
-            if (that._map && that._map.getZoom() == zoom) that._invalidateMarkers();
-            callback();
+            that._invalidateMarkers();
         }
 
         function makeNode(marker, level) {
@@ -443,7 +402,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         this._addLayer(layer);
         if (this._map && !layer._immunityLevel) {
             this._prepareMarker(layer);
-            this._calculateMarkersClassForEachZoom();
+            this._calculateMarkersClass();
             this._invalidateMarkers();
         }
         return this;
@@ -457,7 +416,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
         if (this._map) {
             this.eachLayer(this._prepareMarker, this);
-            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+            setTimeout(this._calculateMarkersClass.bind(this), 0);
         }
         return this;
     },
@@ -476,7 +435,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
 
     removeLayer: function(layer) {
         if (this._removeLayer(layer)) {
-            this._calculateMarkersClassForEachZoom();
+            this._calculateMarkersClass();
             this._invalidateMarkers();
         }
 
@@ -498,7 +457,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
         if (this.getLayers().length) {
             this.eachLayer(this._prepareMarker, this);
             // wait user map manipulation to know correct init zoom
-            setTimeout(this._calculateMarkersClassForEachZoom.bind(this), 0);
+            setTimeout(this._calculateMarkersClass.bind(this), 0);
         }
     },
 
