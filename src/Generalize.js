@@ -1,3 +1,5 @@
+var Generel = require('general');
+
 L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
     options: {
         levels: [
@@ -209,7 +211,7 @@ L.MarkerGeneralizeGroup = L.FeatureGroup.extend({
             levels = this._getLevels(zoom),
             that = this;
 
-        var tree = L.Util.rbush();
+        var tree = L.Util.rbush(); // Тут надо править :-)
         var nodes = [];
 
         for (i = 0; i < this._priorityMarkers.length; i++) {
