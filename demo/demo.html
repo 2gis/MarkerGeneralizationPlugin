@@ -52,9 +52,7 @@
 
     console.log(markers.length);
     DG.then(function() {
-        return DG.plugin('../src/rbush.js');
-    }).then(function() {
-        return DG.plugin('../src/Generalize.js');
+        return DG.plugin('../dist/generalize.min.js');
     })
     .then(function () {
         map = DG.map('map', {

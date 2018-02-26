@@ -1,20 +1,24 @@
 {
   "name": "MarkerGeneralizationPlugin",
-  "version": "0.0.20",
+  "version": "1.0.0",
   "description": "Plugin for marker generalisation in 2gis maps and leaflet",
   "main": "dist/generalize.min.js",
   "scripts": {
-    "build": "gulp"
+    "build": "NODE_ENV=production webpack"
   },
-  "repository" : {
-    "type" : "git",
-    "url" : "https://github.com/2gis/MarkerGeneralizationPlugin.git"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2gis/MarkerGeneralizationPlugin.git"
   },
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "gulp": "^3.9.0",
-    "gulp-concat": "^2.5.2",
-    "gulp-uglify": "^1.1.0",
-    "leaflet": "^0.7.3"
+    "leaflet": "^0.7.3",
+    "webpack": "^3.11.0"
+  },
+  "dependencies": {
+    "@2gis/general": "0.1.0",
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.2",
+    "babel-preset-env": "^1.6.1"
   }
 }

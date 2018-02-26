@@ -58,3 +58,4 @@ L.markerClassList = function (marker) {
     return new L.MarkerClassList(marker);
 };
 
+export default L.MarkerClassList;
