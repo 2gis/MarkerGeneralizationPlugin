@@ -25,9 +25,6 @@ export default L.FeatureGroup.extend({
 
         checkMarkerMinimumLevel: () => 0,
 
-
-        priorityMarkersClassName: '_pin',
-
         // by default Layer has overlayPane, but we work with markers
         pane: 'markerPane'
     },
@@ -125,6 +122,18 @@ export default L.FeatureGroup.extend({
             if (!level.offset) {
                 level.offset = [0.5, 0.5];
             }
+
+            if (!level.margin) {
+                level.margin = 0;
+            }
+
+            if (!level.safeZone) {
+                level.safeZone = 0;
+            }
+
+            if (!level.degradation) {
+                level.degradation = 0;
+            }
         }
         return levels;
     },
@@ -158,12 +167,11 @@ export default L.FeatureGroup.extend({
             return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
         }
         const size = this._map.getSize();
-        const retinaFactor = typeof window == 'undefined' ? 1 : window.devicePixelRatio;
         return {
             minX: 0,
             minY: 0,
-            maxX: size.x * retinaFactor,
-            maxY: size.y * retinaFactor
+            maxX: size.x * window.devicePixelRatio,
+            maxY: size.y * window.devicePixelRatio
         };
     },
 
@@ -228,7 +236,7 @@ export default L.FeatureGroup.extend({
         return markers;
     },
 
-    _calculateMarkersClassesIfNeeded: function(_event, zoom = this._map.getZoom()) {
+    _calculateMarkersClassesIfNeeded: function(zoom = this._map.getZoom()) {
         /**
          * Возможны следующие варианты
          * 1. Изменился zoom карты
@@ -250,13 +258,13 @@ export default L.FeatureGroup.extend({
             return;
         }
 
-        const calcedBounds = this._zoomStat[zoom].bounds; // Это "старые" границы, которые были генерализированы
+        const calculatedBounds = this._zoomStat[zoom].bounds; // Это "старые" границы, которые были генерализированы
         const newBounds = this._getScreenBounds(); // Именно размеры экрана без буффера
         const newLatLngBounds = this._getLatLngBounds( // Это "новые" границы, которы должны быть перекрыты "старыми"
             newBounds, this._map.getCenter(), zoom
         );
 
-        if (!calcedBounds.contains(newLatLngBounds)) { // Собственно, описанная выше проверка перекрытия границ
+        if (!calculatedBounds.contains(newLatLngBounds)) { // Собственно, описанная выше проверка перекрытия границ
             this._calculateMarkersClasses(zoom);
             return;
         }
@@ -269,12 +277,11 @@ export default L.FeatureGroup.extend({
         if (!this._map) { // Если нет карты, то ничего полезного сделать мы не можем
             return undefined;
         }
-        const self = this;
         const levels = this._getLevels(zoom);
         const center = this._map.getCenter();
 
         // Набор конфигов для генерализации маркеров
-        const retinaFactor = typeof window == 'undefined' ? 1 : window.devicePixelRatio;
+        const retinaFactor = window.devicePixelRatio;
         const bounds = this._getBounds();
         const priorityGroups = levels.map((level) => ({
             iconIndex: level.index,
@@ -282,7 +289,7 @@ export default L.FeatureGroup.extend({
             margin: level.margin,
             degradation: level.degradation || 0
         }));
-        const atlasSpritesImulation = levels.map((level) => ({
+        const atlasSpritesEmulation = levels.map((level) => ({
             size: level.size, // Размер иконки
             anchor: level.offset, // Центр иконки относительно ее размеров, принимает занчения от 0 до 1
             pixelDensity: retinaFactor > 1 ? 2 : 1 // Плотность частиц иконки - 1 или 2
@@ -301,7 +308,7 @@ export default L.FeatureGroup.extend({
             bounds,
             retinaFactor,
             priorityGroups,
-            atlasSpritesImulation,
+            atlasSpritesEmulation,
             markers
         ).then(() => {
             // Выставляем классы для генерализованных маркеров
@@ -320,11 +327,11 @@ export default L.FeatureGroup.extend({
 
             this._zoomStat[zoom].ready = true;
             this._zoomStat[zoom].pending = false;
-            if (self._map.getZoom() == zoom) {
-                self._invalidateMarkers();
+            if (this._map.getZoom() == zoom) {
+                this._invalidateMarkers();
             }
         }).catch(() => {
-            self.fireEvent('generalizationError');
+            this.fireEvent('generalizationError');
         });
     },
 
@@ -382,6 +389,7 @@ export default L.FeatureGroup.extend({
     addLayer: function(layer) {
         this._addLayer(layer);
         if (this._map && !layer._immunityLevel) {
+            this._zoomStat[this._map.getZoom()].markers = null;
             this._prepareMarker(layer);
             this._calculateMarkersClasses();
             this._invalidateMarkers();
@@ -396,6 +404,7 @@ export default L.FeatureGroup.extend({
         }
 
         if (this._map) {
+            this._zoomStat[this._map.getZoom()].markers = null;
             this.eachLayer(this._prepareMarker, this);
             setTimeout(this._calculateMarkersClasses.bind(this), 0);
         }
@@ -426,8 +435,8 @@ export default L.FeatureGroup.extend({
     getEvents: function() {
         var events = {
             zoomstart: this._zoomStart,
-            zoomend: this._calculateMarkersClassesIfNeeded,
-            moveend: this._calculateMarkersClassesIfNeeded
+            zoomend: () => this._calculateMarkersClassesIfNeeded(),
+            moveend: () => this._calculateMarkersClassesIfNeeded()
         };
 
         return events;
