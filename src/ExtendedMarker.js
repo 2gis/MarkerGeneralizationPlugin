@@ -1,4 +1,4 @@
-import MarkerClassList from './MarkerClassList';
+import MarkerClassList from './MarkerClassList'; // eslint-disable-line no-unused-vars
 
 /**
  * Extended marker:
@@ -14,9 +14,8 @@ export default L.Marker.extend({
 
     /**
      * Augment parent method to apply class names when icon is added on map
-     * @param map
      */
-    onAdd: function (map) {
+    onAdd: function() {
         L.Marker.prototype.onAdd.apply(this, arguments);
 
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {

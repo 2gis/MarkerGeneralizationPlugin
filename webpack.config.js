@@ -17,7 +17,7 @@ const config = {
     },
     devtool: 'source-map',
     entry: './src/index.js',
-	output: {
+    output: {
         filename: 'generalize.min.js',
         path: path.resolve(__dirname, 'dist'),
         publicPath: '/dist/',
@@ -25,7 +25,7 @@ const config = {
         library: 'MarkerGeneralizationPlugin'
     },
     plugins: [
-        new webpack.optimize.UglifyJsPlugin({ sourceMap: true }),
+        new webpack.optimize.UglifyJsPlugin({ sourceMap: true })
     ]
 };
 

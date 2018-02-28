@@ -2,11 +2,11 @@ import ExtendedMarker from './ExtendedMarker'; // Какого чОрта? @todo
 import MarkerGeneralizeGroup from './Generalize';
 
 export default function extendLeaflet() {
-    L.markerEx = function (latlng, options) {
+    L.markerEx = function(latlng, options) {
         return new ExtendedMarker(latlng, options);
     };
 
-    L.markerGeneralizeGroup = function (option) {
+    L.markerGeneralizeGroup = function(option) {
         return new MarkerGeneralizeGroup(option);
     };
 }

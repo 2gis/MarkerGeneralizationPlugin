@@ -159,7 +159,7 @@ export default L.FeatureGroup.extend({
             minX: 0,
             minY: 0,
             maxX: size.x * retinaFactor,
-            maxY: size.y * retinaFactor,
+            maxY: size.y * retinaFactor
         };
     },
 
@@ -172,7 +172,7 @@ export default L.FeatureGroup.extend({
             minX: screenBounds.minX - screenBounds.maxX * this.options.bufferPart,
             minY: screenBounds.minY - screenBounds.maxY * this.options.bufferPart,
             maxX: screenBounds.maxX + screenBounds.maxX * this.options.bufferPart,
-            maxY: screenBounds.maxY + screenBounds.maxY * this.options.bufferPart,
+            maxY: screenBounds.maxY + screenBounds.maxY * this.options.bufferPart
         };
     },
 
@@ -212,8 +212,6 @@ export default L.FeatureGroup.extend({
             return;
         }
 
-        const self = this;
-
         if (!this._zoomStat[zoom].ready && !this._zoomStat[zoom].pending) {
             this._calculateMarkersClasses(zoom);
             return;
@@ -236,12 +234,12 @@ export default L.FeatureGroup.extend({
 
     _calculateMarkersClasses: function(zoom = this._map.getZoom()) {
         if (!this._map) { // Если нет карты, то ничего полезного сделать мы не можем
-            return;
+            return undefined;
         }
         const self = this;
         const levels = this._getLevels(zoom);
         const center = this._map.getCenter();
-        var topLeftPoint = this._map._getTopLeftPoint(center, zoom);
+        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
 
         // Набор конфигов для генерализации маркеров
         const retinaFactor = typeof window == 'undefined' ? 1 : window.devicePixelRatio;
@@ -254,7 +252,7 @@ export default L.FeatureGroup.extend({
         }));
         const atlasSpritesImulation = levels.map((level) => ({
             size: level.size, // Размер иконки
-            anchor: level.offset,// Центр иконки относительно ее размеров, принимает занчения от 0 до 1
+            anchor: level.offset, // Центр иконки относительно ее размеров, принимает занчения от 0 до 1
             pixelDensity: retinaFactor > 1 ? 2 : 1 // Плотность частиц иконки - 1 или 2
         }));
 
@@ -299,7 +297,7 @@ export default L.FeatureGroup.extend({
             if (self._map.getZoom() == zoom) {
                 self._invalidateMarkers();
             }
-        }).catch((err) => {
+        }).catch(() => {
             self.fireEvent('generalizationError');
         });
     },
@@ -311,7 +309,7 @@ export default L.FeatureGroup.extend({
             return;
         }
 
-        for (let i in this._layers) {
+        for (let i in this._layers) { // eslint-disable-line guard-for-in
             const marker = this._layers[i];
             const groupClass = marker.options.classForZoom[zoom];
             const markerState = marker.options.state;
@@ -422,11 +420,13 @@ export default L.FeatureGroup.extend({
     },
 
     onRemove: function(map) {
-        if (!this._map) return;
+        if (!this._map) {
+            return;
+        }
 
         L.LayerGroup.prototype.onRemove.call(this, map);
 
-        for (let i in this._layers) {
+        for (let i in this._layers) { // eslint-disable-line guard-for-in
             const marker = this._layers[i];
             marker.options.state = 'HIDDEN';
         }
@@ -434,9 +434,9 @@ export default L.FeatureGroup.extend({
         this._map = null;
     },
 
-    clearLayers: function () {
+    clearLayers: function() {
         var i;
-        for (i in this._layers) {
+        for (i in this._layers) { // eslint-disable-line guard-for-in
             this._removeLayer(this._layers[i]);
         }
 
@@ -444,5 +444,4 @@ export default L.FeatureGroup.extend({
         this._otherMarkers = [];
         return this;
     }
-
 });

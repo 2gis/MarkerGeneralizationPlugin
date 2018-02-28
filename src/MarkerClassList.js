@@ -28,33 +28,33 @@ L.Util.extend(L.MarkerClassList.prototype, {
     },
     clear: function() {
         if (this._marker._icon) {
-                for (var className in this._classList) {
-                    L.DomUtil.removeClass(this._marker._icon, className);
-                }
+            for (var className in this._classList) { // eslint-disable-line guard-for-in
+                L.DomUtil.removeClass(this._marker._icon, className);
+            }
         }
         this._classList = {};
     },
     toString: function() {
         if (Object.keys) {
             return Object.keys(this._classList).join(' ');
-        } else {
-            var classList = '';
-            for (var i in this._classList) {
-                classList += i +' ';
-            }
         }
+        var classList = '';
+        for (var i in this._classList) { // eslint-disable-line guard-for-in
+            classList += i + ' ';
+        }
+        return classList;
     },
     _addClasses: function() {
         if (!this._marker._icon) {
             return;
         }
-        for (var className in this._classList) {
+        for (var className in this._classList) { // eslint-disable-line guard-for-in
             L.DomUtil.addClass(this._marker._icon, className);
         }
     }
 });
 
-L.markerClassList = function (marker) {
+L.markerClassList = function(marker) {
     return new L.MarkerClassList(marker);
 };
 
