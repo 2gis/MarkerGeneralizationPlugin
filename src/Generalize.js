@@ -23,6 +23,9 @@ export default L.FeatureGroup.extend({
 
         bufferPart: 0.5,
 
+        checkMarkerMinimumLevel: () => 0,
+
+
         priorityMarkersClassName: '_pin',
 
         // by default Layer has overlayPane, but we work with markers
@@ -90,8 +93,9 @@ export default L.FeatureGroup.extend({
         for (let i = this._getMinZoom(); i <= maxZoom; ++i) {
             this._zoomStat[i] = {
                 ready: false,
-                bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
-                pending: false
+                pending: false,
+                markers: null,
+                bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 }
             };
         }
     },
@@ -169,10 +173,10 @@ export default L.FeatureGroup.extend({
     _getBounds: function() {
         const screenBounds = this._getScreenBounds();
         return {
-            minX: screenBounds.minX - screenBounds.maxX * this.options.bufferPart,
-            minY: screenBounds.minY - screenBounds.maxY * this.options.bufferPart,
-            maxX: screenBounds.maxX + screenBounds.maxX * this.options.bufferPart,
-            maxY: screenBounds.maxY + screenBounds.maxY * this.options.bufferPart
+            minX: screenBounds.minX - (screenBounds.maxX - screenBounds.minX) * this.options.bufferPart,
+            minY: screenBounds.minY - (screenBounds.maxY - screenBounds.minY) * this.options.bufferPart,
+            maxX: screenBounds.maxX + (screenBounds.maxX - screenBounds.minX) * this.options.bufferPart,
+            maxY: screenBounds.maxY + (screenBounds.maxY - screenBounds.minY) * this.options.bufferPart
         };
     },
 
@@ -193,6 +197,35 @@ export default L.FeatureGroup.extend({
             layer.options.classForZoom = layer.options.classForZoom || [];
             layer.options.classForZoom[zoom] = 'HIDDEN';
         }
+    },
+
+    _prepareMarkersForGeneralization: function(zoom, center) {
+        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
+
+        if (this._zoomStat[zoom].markers) {
+            for (let i = 0; i < this._zoomStat[zoom].markers.length; ++i) {
+                const pixelPosition = this._map
+                    .project(this._zoomStat[zoom].markers[i]._latlng, zoom)
+                    .subtract(topLeftPoint);
+                this._zoomStat[zoom].markers[i].pixelPosition = [pixelPosition.x, pixelPosition.y];
+            }
+            return this._zoomStat[zoom].markers;
+        }
+
+        const markers = new Array(this._otherMarkers.length);
+
+        for (let i = 0; i < this._otherMarkers.length; ++i) {
+            const pixelPosition = this._map.project(this._otherMarkers[i]._latlng, zoom).subtract(topLeftPoint);
+            const newMarker = {
+                _latlng: this._otherMarkers[i]._latlng,
+                groupIndex: this.options.checkMarkerMinimumLevel(this._otherMarkers[i]),
+                iconIndex: -1,
+                pixelPosition: [pixelPosition.x, pixelPosition.y]
+            };
+            markers[i] = newMarker;
+        }
+
+        return markers;
     },
 
     _calculateMarkersClassesIfNeeded: function(_event, zoom = this._map.getZoom()) {
@@ -239,7 +272,6 @@ export default L.FeatureGroup.extend({
         const self = this;
         const levels = this._getLevels(zoom);
         const center = this._map.getCenter();
-        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
 
         // Набор конфигов для генерализации маркеров
         const retinaFactor = typeof window == 'undefined' ? 1 : window.devicePixelRatio;
@@ -257,19 +289,12 @@ export default L.FeatureGroup.extend({
         }));
 
         // Переводим маркеры в нужный формат
-        const markers = new Array(this._otherMarkers.length);
-        for (let i = 0; i < this._otherMarkers.length; ++i) {
-            const newMarker = {};
-            newMarker.groupIndex = this._otherMarkers[i].data.is_advertising ? 0 : 1;
-            newMarker.iconIndex = -1;
-            const pixelPosition = this._map.project(this._otherMarkers[i]._latlng, zoom).subtract(topLeftPoint);
-            newMarker.pixelPosition = [pixelPosition.x, pixelPosition.y];
-            markers[i] = newMarker;
-        }
+        const markers = this._prepareMarkersForGeneralization(zoom, center);
 
         this._zoomStat[zoom].ready = false;
         this._zoomStat[zoom].pending = true;
         this._zoomStat[zoom].bounds = this._getLatLngBounds(bounds, center, zoom);
+        this._zoomStat[zoom].markers = markers;
 
         // Запускаем генерализацию
         return this._generalizer.generalize(
@@ -289,7 +314,8 @@ export default L.FeatureGroup.extend({
             // Подбиваем маркера, которые не учавстовали в генерализации
             for (let i = 0; i < this._priorityMarkers.length; ++i) {
                 const marker = this._priorityMarkers[i];
-                marker.options.classForZoom[zoom] = this.options.priorityMarkersClassName;
+                const iconIndex = this.options.checkMarkerMinimumLevel(marker);
+                marker.options.classForZoom[zoom] = iconIndex == -1 ? 'HIDDEN' : levels[iconIndex].className;
             }
 
             this._zoomStat[zoom].ready = true;
@@ -349,6 +375,7 @@ export default L.FeatureGroup.extend({
     },
 
     _zoomStart: function() {
+        this._zoomStat[this._map.getZoom()].markers = null;
         this.getPane().style.display = 'none';
     },
 
