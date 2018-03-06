@@ -97,6 +97,13 @@ export default L.FeatureGroup.extend({
         }
     },
 
+    _flushMarkersCache() {
+        const maxZoom = this._getMaxZoom();
+        for (let i = this._getMinZoom(); i <= maxZoom; ++i) {
+            this._zoomStat[i].markers = null;
+        }
+    },
+
     _getLevels: function(zoom) {
         var ops = this.options;
 
@@ -160,26 +167,39 @@ export default L.FeatureGroup.extend({
     },
 
     /**
+     * Возвращает географические координаты центра карты на заданном зуме
+     * @param  {Number} zoom
+     * @return {L.LatLng}    Географический центр карты
+     */
+    _getMapCenter(zoom) {
+        const centerPoint = this._map._getCenterLayerPoint();
+        // @TODO getPixelOrigin должен зависить от зума, тут скрыт потенциальный баг
+        const projectedPoint = centerPoint.add(this._map.getPixelOrigin());
+        return this._map.unproject(projectedPoint, zoom);
+    },
+
+    /**
      * Возвращает размеры экрана с учётом devicePixelRatio
      */
-    _getScreenBounds() {
+    _getScreenBounds(center, zoom) {
         if (!this._map) {
             return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
         }
+        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
         const size = this._map.getSize();
         return {
-            minX: 0,
-            minY: 0,
-            maxX: size.x * window.devicePixelRatio,
-            maxY: size.y * window.devicePixelRatio
+            minX: topLeftPoint.x,
+            minY: topLeftPoint.y,
+            maxX: topLeftPoint.x + size.x * window.devicePixelRatio,
+            maxY: topLeftPoint.y + size.y * window.devicePixelRatio
         };
     },
 
     /**
      * Возвращает размеры экрана с учётом devicePixelRatio и некоторого буффера вокруг
      */
-    _getBounds: function() {
-        const screenBounds = this._getScreenBounds();
+    _getBounds: function(center, zoom) {
+        const screenBounds = this._getScreenBounds(center, zoom);
         return {
             minX: screenBounds.minX - (screenBounds.maxX - screenBounds.minX) * this.options.bufferPart,
             minY: screenBounds.minY - (screenBounds.maxY - screenBounds.minY) * this.options.bufferPart,
@@ -189,10 +209,9 @@ export default L.FeatureGroup.extend({
     },
 
     _getLatLngBounds: function(pointBound, center, zoom) {
-        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
         const pixelBound = new L.Bounds(
-            topLeftPoint.add(L.point(pointBound.minX, pointBound.minY)),
-            topLeftPoint.add(L.point(pointBound.maxX, pointBound.maxY))
+            L.point(pointBound.minX, pointBound.minY),
+            L.point(pointBound.maxX, pointBound.maxY)
         );
         const swCoord = this._map.unproject(pixelBound.getBottomLeft(), zoom);
         const neCoord = this._map.unproject(pixelBound.getTopRight(), zoom);
@@ -207,14 +226,10 @@ export default L.FeatureGroup.extend({
         }
     },
 
-    _prepareMarkersForGeneralization: function(zoom, center) {
-        const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
-
+    _prepareMarkersForGeneralization: function(zoom) {
         if (this._zoomStat[zoom].markers) {
             for (let i = 0; i < this._zoomStat[zoom].markers.length; ++i) {
-                const pixelPosition = this._map
-                    .project(this._zoomStat[zoom].markers[i]._latlng, zoom)
-                    .subtract(topLeftPoint);
+                const pixelPosition = this._map.project(this._zoomStat[zoom].markers[i]._latlng, zoom);
                 this._zoomStat[zoom].markers[i].pixelPosition = [pixelPosition.x, pixelPosition.y];
             }
             return this._zoomStat[zoom].markers;
@@ -223,7 +238,7 @@ export default L.FeatureGroup.extend({
         const markers = new Array(this._otherMarkers.length);
 
         for (let i = 0; i < this._otherMarkers.length; ++i) {
-            const pixelPosition = this._map.project(this._otherMarkers[i]._latlng, zoom).subtract(topLeftPoint);
+            const pixelPosition = this._map.project(this._otherMarkers[i]._latlng, zoom);
             const newMarker = {
                 _latlng: this._otherMarkers[i]._latlng,
                 groupIndex: this.options.checkMarkerMinimumLevel(this._otherMarkers[i]),
@@ -258,10 +273,12 @@ export default L.FeatureGroup.extend({
             return;
         }
 
+        const center = this._getMapCenter();
+
         const calculatedBounds = this._zoomStat[zoom].bounds; // Это "старые" границы, которые были генерализированы
-        const newBounds = this._getScreenBounds(); // Именно размеры экрана без буффера
+        const newBounds = this._getScreenBounds(center, zoom); // Именно размеры экрана без буффера
         const newLatLngBounds = this._getLatLngBounds( // Это "новые" границы, которы должны быть перекрыты "старыми"
-            newBounds, this._map.getCenter(), zoom
+            newBounds, center, zoom
         );
 
         if (!calculatedBounds.contains(newLatLngBounds)) { // Собственно, описанная выше проверка перекрытия границ
@@ -278,11 +295,11 @@ export default L.FeatureGroup.extend({
             return undefined;
         }
         const levels = this._getLevels(zoom);
-        const center = this._map.getCenter();
+        const center = this._getMapCenter();
 
         // Набор конфигов для генерализации маркеров
         const retinaFactor = window.devicePixelRatio;
-        const bounds = this._getBounds();
+        const bounds = this._getBounds(center, zoom);
         const priorityGroups = levels.map((level) => ({
             iconIndex: level.index,
             safeZone: level.safeZone,
@@ -296,12 +313,14 @@ export default L.FeatureGroup.extend({
         }));
 
         // Переводим маркеры в нужный формат
-        const markers = this._prepareMarkersForGeneralization(zoom, center);
+        const markers = this._prepareMarkersForGeneralization(zoom);
 
-        this._zoomStat[zoom].ready = false;
-        this._zoomStat[zoom].pending = true;
-        this._zoomStat[zoom].bounds = this._getLatLngBounds(bounds, center, zoom);
-        this._zoomStat[zoom].markers = markers;
+        this._zoomStat[zoom] = {
+            ready: false,
+            pending: true,
+            bounds: this._getLatLngBounds(bounds, center, zoom),
+            markers: markers
+        };
 
         // Запускаем генерализацию
         return this._generalizer.generalize(
@@ -389,7 +408,7 @@ export default L.FeatureGroup.extend({
     addLayer: function(layer) {
         this._addLayer(layer);
         if (this._map && !layer._immunityLevel) {
-            this._zoomStat[this._map.getZoom()].markers = null;
+            this._flushMarkersCache();
             this._prepareMarker(layer);
             this._calculateMarkersClasses();
             this._invalidateMarkers();
@@ -404,7 +423,7 @@ export default L.FeatureGroup.extend({
         }
 
         if (this._map) {
-            this._zoomStat[this._map.getZoom()].markers = null;
+            this._flushMarkersCache();
             this.eachLayer(this._prepareMarker, this);
             setTimeout(this._calculateMarkersClasses.bind(this), 0);
         }
