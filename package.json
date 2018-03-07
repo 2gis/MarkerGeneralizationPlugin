@@ -5,6 +5,7 @@
   "main": "dist/generalize.min.js",
   "scripts": {
     "build": "webpack -p",
+    "build-dev": "webpack",
     "lint": "./node_modules/.bin/eslint ./src",
     "hook-install": "prepush install",
     "hook-remove": "prepush remove"

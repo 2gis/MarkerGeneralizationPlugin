@@ -23,10 +23,7 @@ const config = {
         publicPath: '/dist/',
         libraryTarget: 'umd',
         library: 'MarkerGeneralizationPlugin'
-    },
-    plugins: [
-        new webpack.optimize.UglifyJsPlugin({ sourceMap: true })
-    ]
+    }
 };
 
 module.exports = config;
