@@ -331,7 +331,7 @@ export default L.FeatureGroup.extend({
             markers
         ).then(() => {
             // Выставляем классы для генерализованных маркеров
-            for (let i = 0; i < this._otherMarkers.length; ++i) {
+            for (let i = 0; i < markers.length; ++i) {
                 const marker = this._otherMarkers[i];
                 const iconIndex = markers[i].iconIndex;
                 marker.options.classForZoom[zoom] = iconIndex == -1 ? 'HIDDEN' : levels[iconIndex].className;
@@ -401,7 +401,12 @@ export default L.FeatureGroup.extend({
     },
 
     _zoomStart: function() {
-        this._zoomStat[this._map.getZoom()].markers = null;
+        this._zoomStat[this._map.getZoom()] = {
+            ready: false,
+            pending: false,
+            bounds: this._map.getBounds(),
+            markers: null
+        };
         this.getPane().style.display = 'none';
     },
 
@@ -444,6 +449,7 @@ export default L.FeatureGroup.extend({
 
     removeLayer: function(layer) {
         if (this._removeLayer(layer)) {
+            this._flushMarkersCache();
             this._calculateMarkersClasses();
             this._invalidateMarkers();
         }
@@ -486,17 +492,18 @@ export default L.FeatureGroup.extend({
             marker.options.state = 'HIDDEN';
         }
 
+        this._flushMarkersCache();
         this._map = null;
     },
 
     clearLayers: function() {
-        var i;
-        for (i in this._layers) { // eslint-disable-line guard-for-in
-            this._removeLayer(this._layers[i]);
+        for (let i in this._layers) { // eslint-disable-line guard-for-in
+            L.LayerGroup.prototype.removeLayer.call(this, this._layers[i]);
         }
 
         this._priorityMarkers = [];
         this._otherMarkers = [];
+        this._flushMarkersCache();
         return this;
     }
 });
