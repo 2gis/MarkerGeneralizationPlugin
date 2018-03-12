@@ -43,10 +43,6 @@ export default L.FeatureGroup.extend({
         this.setMinZoom(options.minZoom);
 
         this._initZooms(); // Обязательно после set[Min|Max]Zoom
-
-        this.on('invalidationFinish', function() {
-            this.getPane().style.display = 'block';
-        });
     },
 
     setMaxZoom: function(maxZoom) {
@@ -298,7 +294,6 @@ export default L.FeatureGroup.extend({
         const center = this._getMapCenter();
 
         // Набор конфигов для генерализации маркеров
-        const retinaFactor = window.devicePixelRatio;
         const bounds = this._getBounds(center, zoom);
         const priorityGroups = levels.map((level) => ({
             iconIndex: level.index,
@@ -309,7 +304,7 @@ export default L.FeatureGroup.extend({
         const atlasSpritesEmulation = levels.map((level) => ({
             size: level.size, // Размер иконки
             anchor: level.offset, // Центр иконки относительно ее размеров, принимает занчения от 0 до 1
-            pixelDensity: retinaFactor > 1 ? 2 : 1 // Плотность частиц иконки - 1 или 2
+            pixelDensity: 1 // Всегда 1 т.к. размеры иконки заданы фиксировано и от devicePixelRatio не зависят
         }));
 
         // Переводим маркеры в нужный формат
@@ -325,7 +320,7 @@ export default L.FeatureGroup.extend({
         // Запускаем генерализацию
         return this._generalizer.generalize(
             bounds,
-            retinaFactor,
+            window.devicePixelRatio,
             priorityGroups,
             atlasSpritesEmulation,
             markers
@@ -390,13 +385,15 @@ export default L.FeatureGroup.extend({
             }
 
             if (groupClass == 'HIDDEN') {
-                if (!marker.onBeforeRemove || (marker.onBeforeRemove && marker.onBeforeRemove())) {
+                const shouldRemove = marker.onBeforeRemove ? marker.onBeforeRemove() : true;
+                if (shouldRemove) {
                     this._map.removeLayer(marker);
                 }
             }
             marker.options.state = groupClass;
         }
 
+        this.getPane().style.display = 'block';
         this.fireEvent('invalidationFinish');
     },
 
