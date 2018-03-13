@@ -31,6 +31,6 @@
     "webpack": "^3.11.0"
   },
   "dependencies": {
-    "@2gis/general": "0.2.0"
+    "@2gis/general": "0.3.0"
   }
 }
