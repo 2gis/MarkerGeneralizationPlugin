@@ -113,14 +113,16 @@ export default L.FeatureGroup.extend({
     },
 
     _prepareLevels: function(levels) {
-        let level;
+        const dpr = window.devicePixelRatio;
         for (let levelId = 0; levelId < levels.length; levelId++) {
-            level = levels[levelId];
+            let level = levels[levelId];
             level.index = levelId;
 
             if (!level.size) {
                 level.size = [0, 0];
             }
+            level.size[0] *= dpr;
+            level.size[1] *= dpr;
 
             if (!level.offset) {
                 level.offset = [0.5, 0.5];
@@ -129,14 +131,17 @@ export default L.FeatureGroup.extend({
             if (!level.margin) {
                 level.margin = 0;
             }
+            level.margin *= dpr;
 
             if (!level.safeZone) {
                 level.safeZone = 0;
             }
+            level.safeZone *= dpr;
 
             if (!level.degradation) {
                 level.degradation = 0;
             }
+            level.degradation *= dpr;
         }
         return levels;
     },
@@ -175,24 +180,25 @@ export default L.FeatureGroup.extend({
     },
 
     /**
-     * Возвращает размеры экрана с учётом devicePixelRatio
+     * Возвращает размеры экрана
      */
     _getScreenBounds(center, zoom) {
         if (!this._map) {
             return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
         }
+        const dpr = window.devicePixelRatio;
         const topLeftPoint = this._map._getTopLeftPoint(center, zoom);
         const size = this._map.getSize();
         return {
-            minX: topLeftPoint.x,
-            minY: topLeftPoint.y,
-            maxX: topLeftPoint.x + size.x * window.devicePixelRatio,
-            maxY: topLeftPoint.y + size.y * window.devicePixelRatio
+            minX: topLeftPoint.x * dpr,
+            minY: topLeftPoint.y * dpr,
+            maxX: (topLeftPoint.x + size.x) * dpr,
+            maxY: (topLeftPoint.y + size.y) * dpr
         };
     },
 
     /**
-     * Возвращает размеры экрана с учётом devicePixelRatio и некоторого буффера вокруг
+     * Возвращает размеры экрана с некоторым буффером вокруг
      */
     _getBounds: function(center, zoom) {
         const screenBounds = this._getScreenBounds(center, zoom);
@@ -223,10 +229,11 @@ export default L.FeatureGroup.extend({
     },
 
     _prepareMarkersForGeneralization: function(zoom) {
+        const dpr = window.devicePixelRatio;
         if (this._zoomStat[zoom].markers) {
             for (let i = 0; i < this._zoomStat[zoom].markers.length; ++i) {
                 const pixelPosition = this._map.project(this._zoomStat[zoom].markers[i]._latlng, zoom);
-                this._zoomStat[zoom].markers[i].pixelPosition = [pixelPosition.x, pixelPosition.y];
+                this._zoomStat[zoom].markers[i].pixelPosition = [pixelPosition.x * dpr, pixelPosition.y * dpr];
             }
             return this._zoomStat[zoom].markers;
         }
@@ -239,7 +246,7 @@ export default L.FeatureGroup.extend({
                 _latlng: this._otherMarkers[i]._latlng,
                 groupIndex: this.options.checkMarkerMinimumLevel(this._otherMarkers[i]),
                 iconIndex: -1,
-                pixelPosition: [pixelPosition.x, pixelPosition.y]
+                pixelPosition: [pixelPosition.x * dpr, pixelPosition.y * dpr]
             };
             markers[i] = newMarker;
         }
@@ -299,12 +306,11 @@ export default L.FeatureGroup.extend({
             iconIndex: level.index,
             safeZone: level.safeZone,
             margin: level.margin,
-            degradation: level.degradation || 0
+            degradation: level.degradation
         }));
         const atlasSpritesEmulation = levels.map((level) => ({
             size: level.size, // Размер иконки
-            anchor: level.offset, // Центр иконки относительно ее размеров, принимает занчения от 0 до 1
-            pixelDensity: 1 // Всегда 1 т.к. размеры иконки заданы фиксировано и от devicePixelRatio не зависят
+            anchor: level.offset // Центр иконки относительно ее размеров, принимает занчения от 0 до 1
         }));
 
         // Переводим маркеры в нужный формат
@@ -320,7 +326,6 @@ export default L.FeatureGroup.extend({
         // Запускаем генерализацию
         return this._generalizer.generalize(
             bounds,
-            window.devicePixelRatio,
             priorityGroups,
             atlasSpritesEmulation,
             markers
