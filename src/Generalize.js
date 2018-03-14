@@ -1,4 +1,5 @@
 import { General } from '@2gis/general';
+import cloneDeep from 'deep-clone';
 
 export default L.FeatureGroup.extend({
     options: {
@@ -109,7 +110,7 @@ export default L.FeatureGroup.extend({
         } else {
             levels = ops.levels;
         }
-        return this._prepareLevels(levels);
+        return this._prepareLevels(cloneDeep(levels));
     },
 
     _prepareLevels: function(levels) {
