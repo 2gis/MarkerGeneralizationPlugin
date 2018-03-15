@@ -150,7 +150,7 @@ export default L.FeatureGroup.extend({
     _addLayer: function(layer) {
         layer.addEventParent(this);
 
-        if (layer.showAlways) {
+        if (layer.options && layer.options.showAlways) {
             this._priorityMarkers.push(layer);
         } else {
             this._otherMarkers.push(layer);
