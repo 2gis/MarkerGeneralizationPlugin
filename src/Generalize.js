@@ -298,6 +298,9 @@ export default L.FeatureGroup.extend({
         if (!this._map) { // Если нет карты, то ничего полезного сделать мы не можем
             return undefined;
         }
+        if (isEmpty(this._layers)) { // Ничего не надо генерализовывать если маркеров нет
+            return undefined;
+        }
         const levels = this._getLevels(zoom);
         const center = this._getMapCenter();
 
@@ -399,7 +402,9 @@ export default L.FeatureGroup.extend({
             marker.options.state = groupClass;
         }
 
-        this.getPane().style.display = 'block';
+        if (!isEmpty(this._layers)) {
+            this.getPane().style.display = 'block';
+        }
         this.fireEvent('invalidationFinish');
     },
 
@@ -410,7 +415,9 @@ export default L.FeatureGroup.extend({
             bounds: this._map.getBounds(),
             markers: null
         };
-        this.getPane().style.display = 'none';
+        if (!isEmpty(this._layers)) {
+            this.getPane().style.display = 'none';
+        }
     },
 
     addLayer: function(layer) {
@@ -510,3 +517,12 @@ export default L.FeatureGroup.extend({
         return this;
     }
 });
+
+function isEmpty(obj) {
+    for (var prop in obj) {
+        if (obj.hasOwnProperty(prop)) {
+            return false;
+        }
+    }
+    return true;
+}
