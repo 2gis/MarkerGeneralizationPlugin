@@ -1,9 +1,11 @@
+import MarkerClassList from './MarkerClassList'; // eslint-disable-line no-unused-vars
+
 /**
  * Extended marker:
  * - has options to prevent deletion or hide during generalization
  * - makes use of internal class list being applied to icon node
  */
-L.MarkerEx = L.Marker.extend({
+export default L.Marker.extend({
     /**
      * If we can use extended powers of current marker.
      */
@@ -12,9 +14,8 @@ L.MarkerEx = L.Marker.extend({
 
     /**
      * Augment parent method to apply class names when icon is added on map
-     * @param map
      */
-    onAdd: function (map) {
+    onAdd: function() {
         L.Marker.prototype.onAdd.apply(this, arguments);
 
         if (this._immunityLevel == this.IMMUNITY.NO_DELETE) {
@@ -73,8 +74,3 @@ L.MarkerEx = L.Marker.extend({
         return this;
     }
 });
-
-L.markerEx = function (latlng, options) {
-    return new L.MarkerEx(latlng, options);
-};
-

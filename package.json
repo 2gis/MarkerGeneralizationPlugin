@@ -1,20 +1,37 @@
 {
   "name": "MarkerGeneralizationPlugin",
-  "version": "0.0.20",
+  "version": "1.0.0",
   "description": "Plugin for marker generalisation in 2gis maps and leaflet",
   "main": "dist/generalize.min.js",
   "scripts": {
-    "build": "gulp"
+    "build": "webpack -p",
+    "build-dev": "webpack",
+    "lint": "./node_modules/.bin/eslint ./src",
+    "hook-install": "prepush install",
+    "hook-remove": "prepush remove"
   },
-  "repository" : {
-    "type" : "git",
-    "url" : "https://github.com/2gis/MarkerGeneralizationPlugin.git"
+  "prepush": {
+    "tasks": [
+      "npm run lint"
+    ],
+    "onDirtyState": "ask",
+    "coloredOuput": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/2gis/MarkerGeneralizationPlugin.git"
   },
   "license": "BSD-2-Clause",
   "devDependencies": {
-    "gulp": "^3.9.0",
-    "gulp-concat": "^2.5.2",
-    "gulp-uglify": "^1.1.0",
-    "leaflet": "^0.7.3"
+    "babel-core": "^6.26.0",
+    "babel-loader": "^7.1.3",
+    "babel-preset-env": "^1.6.1",
+    "eslint": "^4.18.1",
+    "prepush": "^3.1.11",
+    "webpack": "^3.11.0"
+  },
+  "dependencies": {
+    "@2gis/general": "0.3.0",
+    "deep-clone": "^3.0.2"
   }
 }
